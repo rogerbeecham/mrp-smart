@@ -1,0 +1,30 @@
+project:
+  type: website
+  render:
+    - "*.qmd"
+    - "*.md"
+  output-dir: docs
+
+execute:
+  freeze: auto
+
+website:
+  title: "MRP-Smart"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - href: proposal/
+        text: Proposal
+      - href: demo/
+        text: MRP demo
+format:
+  html:
+    theme: custom.scss
+    toc: true
+    code-link: true
+    anchor-sections: true
+    fig-cap-location: margin
+    reference-location: margin
+    footnotes-hover: true
+    highlight-style: monokai

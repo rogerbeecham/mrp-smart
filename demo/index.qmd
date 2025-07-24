@@ -1,0 +1,1203 @@
+---
+title: "Experiments with MRP for small area estimation in GIScience"
+author: "Roger Beecham and Stephen Clark"
+---
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+library(knitr)
+library(here)
+```
+
+## Introduction
+
+This document describes a workflow for generating small area outcome estimates using MRP. Originally this work formed a GISRUK abstract ([paper](https://eprints.whiterose.ac.uk/id/eprint/226795/1/mrp_gisruk.pdf) | [talk](https://www.roger-beecham.com/slides/mrp/slides.html#/title-slide)). Currently, we are turning this into a full paper, but particularly exciting are the  wider ambitions to generate a set of place-based indicators as part of Leeds [HASP](https://www.sdruk.ukri.org/data/healthy-and-sustainable-places-data-service/) data service. 
+
+## Setup
+
+As well as the usual suspects, listed below are some useful packages for working over (Bayesian) models in a *tidy* way. [`brms`](https://paulbuerkner.com/brms/) is a wrapper to Stan; [`marginaleffects`](https://marginaleffects.com) is a very useful package for generating interpretable outputs from model objects (conditional effects in this case);  and [`tidybayes`](https://mjskay.github.io/tidybayes/) for uncertainty representation extensions to `ggplot2`.
+
+
+
+```{r}
+#| code-fold: true
+#| echo: true
+#| eval: false
+library(here) 
+library(tidyverse) 
+
+# Bayesian modelling tools
+library(rstanarm)
+library(cmdstanr)
+library(brms)
+library(marginaleffects) # For extracting effect sizes from bayesian objects.
+library(parameters)
+library(tidybayes) # For uncertainty representation.
+
+library(sf)
+library(patchwork)
+library(ggtext)
+library(ggpubr)
+
+# library(modelsummary)
+# library(gt)
+source(here("R", "theme_clean.R"))
+source(here("R", "plot_helpers.R"))
+```
+
+
+## Data
+
+* Survey data (microdata) 
+* Census data: Pop by usual residence in households. 
+* Poststratification frame: Joint counts (and modelled joint counts) by MSOA.
+* MSOA lookup files, spatial geometry files etc.
+
+### Health Survey for England data
+
+```{r}
+#| code-fold: true
+#| echo: true
+#| eval: false
+# HEStoFMF.R > Converts to format to be used in FMF
+# HES data (microdata)
+hes_raw <- read_csv(here("Data", "HES", "spss", "spss28", "HES_for_R.csv"))
+hes_for_model <- read_csv(here("FMF", "HES", "HESforFMF.csv")) |> 
+  select(id=Seriala, health=genhelf1, SexbyAge, sha=SHA2, region=GOR2, is_urban=urban14b_2, imd=qimd19_2) |>
+  separate_wider_delim(col=SexbyAge, names=c("sex", "age"), delim=".") |> 
+  mutate(
+    # Create binary outcome variable.
+    is_good=health %in% c("good","verygood"),
+    # Cast 5-point as factor, for ordinal regression.
+    health=factor(health, levels=c("verybad", "bad", "fair", "good", "verygood"), ordered=TRUE),
+    is_urban=is_urban=="U",
+    imd=case_when(
+      imd=="Least.deprived" ~ "5",
+      imd== "X4" ~ "2", 
+      imd== "X3" ~ "3",
+      imd== "X2" ~ "4",
+      imd=="Most.deprived" ~ "1",
+      TRUE ~ imd
+      ),
+    across(c(sha, region), ~str_replace_all(.x, "\\.","_"))
+    ) |> 
+    left_join(hes_raw |>  mutate(educ= case_when(
+    topqual3 == "NVQ4/NVQ5/Degree or equiv" ~ "level4",
+    topqual3 %in% c("Higher ed below degree","NVQ3/GCE A Level equiv") ~ "level3",
+    topqual3 %in% c("NVQ1/CSE other grade equiv","NVQ2/GCE O Level equiv") ~ "level1level2",
+    topqual3 == "Foreign/other" ~ "other",
+    topqual3 %in% c("No qualification","Refused") ~ "level0",
+    topqual3 == "Not applicable" ~ "na",
+    TRUE ~ topqual3
+  )) |> 
+  select(id=Seriala, educ)) |> 
+    mutate(age2=case_when(
+      age %in% c("age0to4", "age5to15") ~ "age0to15",
+      age %in% c("age65to74", "age75p") ~ "age65p",
+      TRUE ~ age
+    )) 
+```
+
+### Census data and poststratification frame
+
+```{r}
+#| code-fold: true
+#| echo: true
+#| eval: false
+# Total households by MSOA
+zone_totals <- read_csv(here("data", "TS001.csv")) |> rename(zone_id=`Zone ID`)
+
+# Groundtruth: Census data
+health <- read_csv(here("data", "GH.csv")) |> rename(zone_id=`Zone ID`)
+geog <- readxl::read_excel(here("data", "MSOA21_GOR_SHA_UR_IMD.xlsx"), sheet="MSOA21") |> 
+  select(zone_id=MSOA21CD, region=GOR2, sha=SHA2, is_urban=urban14b_2, imd=IMD19_1eqMD) |> 
+  mutate(
+  is_urban=is_urban=="U", across(c(sha, region), ~str_replace_all(.x, "\\.","_")))
+
+# Poststratification frame
+# ps1 : sex by age
+ps1 <- read_csv(here("data", "SexbyAge.csv")) |> rename(zone_id=`Zone ID`) |> 
+  pivot_longer(-zone_id) |> 
+  separate_wider_delim(col=name, names=c("sex", "age"), delim=".") |> 
+  mutate(count=value) |> 
+  group_by(zone_id) |> 
+  mutate(zone_tot=sum(count)) |> ungroup() |> 
+  group_by(zone_id, sex, age) |>
+  summarise(cell_counts=sum(count), prop=cell_counts/zone_tot) |> 
+  ungroup() |> 
+  left_join(geog)
+
+# ps2 : sex by age by education level
+ps2 <- readxl::read_excel(here("data", "SbyAbyQual.xlsx"), sheet="custom-filtered-2024-11-24T15_1")
+names(ps2) <- c("zone_id", "zone_name", "age_code", "age", "sex_code", "sex", "educ_code", "educ", "count")
+
+# Checking for different MSOA definitions.
+missing_msoas <- ps2 |> 
+  separate_wider_delim(educ, delim=":", names=c("educ", "expl"), too_few = "align_start") |> 
+  select(zone_id, age, sex, educ, count) |> 
+  left_join(geog |> select(zone_id, region)) |> filter(region!="Wales") |> 
+  group_by(zone_id) |>
+  summarise(zone_tot=sum(count)) |> 
+  left_join(geog) |> filter(region!="Wales") |> select(zone_id, region) |> unique() |> 
+  left_join(ps1 |> select(zone_id, r2=region) |> unique() ) |> filter(is.na(r2)) |> pull(zone_id)
+
+# Create formatted ps dataset, matching HSE data.
+ps2  <- ps2 |> 
+  separate_wider_delim(educ, delim=":", names=c("educ", "expl"), too_few = "align_start") |> 
+  select(zone_id, age, sex, educ, count) |> 
+  left_join(geog |> select(zone_id, region)) |> filter(region!="Wales", !zone_id %in% missing_msoas) |> 
+  select(-region) |> 
+  mutate(
+    educ= case_when(
+      educ == "Level 4 qualifications or above" ~ "level4",
+      educ == "Level 3 qualifications" ~ "level3",
+      educ %in% c("Level 2 qualifications","Level 1 and entry level qualifications") ~ "level1level2",
+      educ == "No qualifications" ~ "level0",
+      educ == "Does not apply" ~ "na",
+      educ == "Other" ~ "other",
+      TRUE ~ as.character(educ) ),
+    sex=tolower(sex),
+    age = case_when(
+      age == "Aged 15 years and under" ~ "age0to15",
+      age == "Aged 16 to 24 years" ~ "age16to24",
+      age == "Aged 25 to 34 years" ~ "age25to34",
+      age == "Aged 35 to 49 years" ~ "age35to49",
+      age == "Aged 50 to 64 years" ~ "age50to64",
+      age == "Aged 65 years and over" ~ "age65p",
+      TRUE ~ age ),
+    ) |>
+  group_by(zone_id) |>
+  mutate(zone_tot=sum(count)) |> ungroup() |> 
+  group_by(zone_id, sex, age, educ) |>
+  summarise(cell_counts=sum(count), prop=cell_counts/zone_tot) |>   
+  ungroup() |> unique() |> 
+  left_join(geog)
+
+# Identify differences in MSOA codes between the HSE and MSOA lookup datasets.
+# missing_msoas <- t |> left_join(geog) |> filter(region!="Wales") |> select(zone_id, region) |> unique() |> left_join(ps1|> select(zone_id, r2=region) |> unique() ) |> filter(is.na(r2)) |> pull(zone_id)
+# LIST of MSOAs not in ps1but present in ps2
+# Joining with `by = join_by(zone_id)`
+# Joining with `by = join_by(zone_id)`
+# # A tibble: 14 × 3
+#    zone_id   region                   r2   
+#    <chr>     <chr>                    <chr>
+#  1 E02002524 North_East               NA   
+#  2 E02002526 North_East               NA   
+#  3 E02002693 Yorkshire_and_the_Humber NA   
+#  4 E02003897 South_West               NA   
+#  5 E02003972 North_West               NA   
+#  6 E02003974 North_West               NA   
+#  7 E02004243 South_West               NA   
+#  8 E02004631 South_West               NA   
+#  9 E02005184 North_West               NA   
+# 10 E02005327 North_West               NA   
+# 11 E02005713 North_East               NA   
+# 12 E02005721 North_East               NA   
+# 13 E02005727 North_East               NA   
+# 14 E02005915 East_Midlands            NA   
+
+# Population size of those missing MSOAs : 88536
+ps2 |> left_join(geog) |> 
+  filter(region!="Wales", !zone_id %in% missing_msoas ) |> 
+  summarise(tot=sum(cell_counts))
+# 55415266
+ps1|> summarise(tot=sum(cell_counts))
+# 55415499
+# Overall difference in zone totals, with hhd also of 233.
+
+# Check levels exactly match between the survey and postratification frame.
+all.equal(
+  ps2 |> select(region) |> unique() |> arrange(region) |>  pull(),
+  hes_for_model |> select(region) |> unique() |> arrange(region) |> pull()
+)
+```
+
+
+### Boundary data
+
+```{r}
+#| echo: true
+#| eval: false
+#| code-fold: true
+
+# MSOAs : Bring down from ONS Open Geography Portal and simplify. 
+# msoa_boundaries <- st_read("https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Middle_layer_Super_Output_Areas_December_2021_Boundaries_EW_BSC_V3/FeatureServer/0/query?outFields=*&where=1%3D1&f=geojson") |> 
+# rmapshaper::ms_simplify(keep_shapes = TRUE)
+# st_write(msoa_boundaries, here("data", "msoa_boundaries.geojson"))
+msoa_boundaries <- st_read(here("data", "msoa_boundaries.geojson"))
+```
+
+## Explore survey data: Look for bias
+
+```{r}
+#| code-fold: true
+#| echo: true
+#| eval: false
+# Binary outcome.
+temp_freqs <- bind_rows (
+  ps2 |> 
+  select(c(sex:cell_counts, region, is_urban, imd)) |> mutate(is_urban=as.character(is_urban), imd=as.character(imd)) |> 
+  pivot_longer(-c(cell_counts), names_to = "var_name", values_to = "val") |> 
+  group_by(var_name, val) |> 
+  summarise(count=sum(cell_counts)) |> mutate(type="Census"),
+  
+  hes_for_model |> select(-c(is_good,sha, age)) |> 
+  rename(age=age2) |> 
+  mutate(is_urban=as.character(is_urban)) |> 
+  pivot_longer(-c(id, health), names_to = "var_name", values_to = "val") |> 
+  group_by(var_name, val) |> 
+  summarise(count=n()) |>  mutate(type="HSE")
+)
+
+# Plot
+bias_hse <- temp_freqs |> 
+  pivot_wider(names_from=var_name, values_from=val) |> 
+  mutate(
+    imd=case_when(
+      imd=="1" ~ "1 most",
+      imd== "5" ~ "5 least",
+      TRUE ~ imd
+      ),
+    region=case_when(
+      region=="East_Midlands" ~ "EM",
+      region=="East_of_England" ~ "E", 
+      region=="North_East" ~ "NE",
+      region=="North_West" ~ "NW",
+      region=="South_East" ~ "SE",
+      region=="South_West" ~ "SW",
+      region=="West_Midlands" ~ "WM",
+      region=="Yorkshire_and_the_Humber" ~ "Y&H",
+      TRUE ~ region),
+    educ=case_when(
+      educ=="level0" ~ "0. none",
+      educ=="level1level2" ~ "1. 2+ GCSEs", 
+      educ=="level3" ~ "3. A-levels", 
+      educ=="level4" ~ "4. degree +",
+      educ=="na" ~ "na/other",
+       educ=="other" ~ "na/other",
+      ),
+    age=case_when(
+      age == "age0to15" ~ "0-15",
+      age == "age16to24" ~ "16-24",
+      age == "age25to34" ~ "25-34",
+      age == "age35to49" ~ "35-49",
+      age == "age50to64" ~ "50-64",
+      age == "age65p" ~ "65+"),
+    is_urban=case_when(
+      is_urban == FALSE ~ "rural",
+      is_urban == TRUE ~ "urban")
+  ) |> 
+  pivot_longer(-c(count, type), names_to = "var_name", values_to = "val") |> filter(!is.na(val)) |> 
+  mutate(var_name=factor(var_name, levels=c("sex", "age", "educ", "imd", "is_urban", "region"))) |> 
+  
+  group_by(type, var_name) |> 
+  mutate(tot=sum(count)) |> ungroup() |> 
+  group_by(type, val) |> 
+  mutate(prop=count/tot) |> ungroup() |> 
+  
+  ggplot(aes(x=val, y=prop)) +
+  geom_col(data=. %>% filter(type=="HSE"), fill="#636363", alpha=.5) +
+  geom_spoke(data=. %>% filter(type=="Census"), angle=0, radius=.5, position="center_spoke",alpha=1, linewidth=.8, colour="#08519c") +
+  facet_grid(.~var_name, scales="free_x", space="free_x") +
+  labs(
+    y="% in <span style='color: #08519c;'>**Census**</span> vs <span style='color: #636363;'>**HSE**</span>", 
+    x="", 
+    title="Difference between 2021 <span style='color: #636363;'>**HSE**</span> sample and <span style='color: #08519c;'>**Census**</span> population") +
+  theme(
+    strip.text.x = element_text(size=35),
+    axis.text.y=element_text(size=30),
+    axis.text.x=element_text(angle=270, hjust = 0, size=35),
+    axis.title.y = element_markdown(size=40),
+    plot.title = element_markdown(size=60)
+    )
+ggsave(here("..", "figs", "bias_hse2.png"), bias_hse, width=8, height=4.5, dpi=300)
+```
+
+```{r}
+#| label: fig-bias-hse
+#| out.width: 100%
+#| fig-cap: ""
+#| echo: false
+#| eval: true
+include_graphics(here("..", "figs", "bias_hse2.png"), error = FALSE)
+```
+
+## Model
+
+I am following primers on MRP:
+
+* [Juan Lopez-Martin + others](https://statmodeling.stat.columbia.edu/2022/05/31/multilevel-regression-and-poststratification-case-studies/), via `brms`  and `stanarm`
+* [Solomon Kurz](https://bookdown.org/content/4857/models-with-memory.html), via `brms`
+* [Nathan Alexander](https://rohanalexander.github.io/telling_stories-published/15-mrp.html), via `stanarm`
+
+Also, I have been consulting Andrew Heiss's detailed posts on working with logistic regression multilevel model outputs: [here](https://www.andrewheiss.com/blog/2021/11/10/ame-bayes-re-guide/#posterior-predictions) and [here](https://www.andrewheiss.com/blog/2023/08/12/conjoint-multilevel-multinomial-guide/#bayesian-comparisonscontrasts).
+
+General practice in MRP is to include every variable as a random intercept / level and so fully-pool estimates of the outcome. That makes sense, but it means that it's hard to interpret and justify model-based decisions on variables included in the model. While general practice is to include as many demographics and geography variables as possible, as long as they can still compute, if we are interested in ultimately building some SPM, then it is useful to require parsimony in the variables used. But interpreting these hierarchical Bayesian  model outputs is hard. What I do here is:
+
+1. Generate posterior predictions for each level in the model and look at how narrow the CIs are for those values. This is using [marginal effects](https://marginaleffects.com/bonus/brms.html). 
+
+2. Generate posterior conditional effects for each level in them, again using [marginal effects](https://marginaleffects.com/bonus/brms.html). 
+
+2. Extract the "condition_mean", as per [Alexander 2023](https://rohanalexander.github.io/telling_stories-published/15-mrp.html) -- but I need to check what this means.
+
+
+### Priors
+
+We parameterise our models using:
+
+1.  An informed prior on the intercept. We have some experience with stated response surveys and health outcomes. Our expectation is that most will identify as in good health -- c. 75%. So for the multilevel logistic regression, our intercept is a Gaussian set on log-odds scale,  we use $Normal(mean=0.5, sd=1)$.
+
+2. The multilevel priors are set to $exponential(1)$ as a default. 
+
+3. The `adept_delta` setting is to .95 -- common when a hierarchical grouping variable has few levels.
+
+```{r}
+#| code-fold: true
+#| echo: true
+#| eval: false
+p <- tibble(n = rnorm(1e6, mean = 0.5, sd = 1)) |>  
+  mutate(p = brms::inv_logit_scaled(n)) |> 
+  ggplot(aes(x = p)) +
+  geom_histogram(fill="#636363", binwidth = .02, boundary = 0, alpha=.5) +
+  scale_y_continuous(breaks = NULL) +
+  scale_x_continuous(labels = scales::label_percent()) +
+  labs(
+    title="<span>theoretical **prior** on intercept</span>", 
+    x="baseline % **good** health", y="") +
+  theme(
+    axis.title=element_markdown(size=35), 
+    plot.title = element_markdown(size=60),
+    axis.text.x=element_text(size=30)
+    )
+ggsave(here("..", "figs", "prior.png"), p, width=4.5, height=3, dpi=300)
+```
+
+```{r}
+#| label: fig-prior
+#| out.width: 70%
+#| fig-cap: ""
+#| echo: false
+#| eval: true
+include_graphics(here("..", "figs", "prior.png"), error = FALSE)
+```
+
+
+### Example model specification
+
+```{r}
+#| echo: true
+#| eval: false
+set.seed(13)
+# Time difference of 5.53914 mins
+start <- Sys.time()
+model7 <-
+  brm(data = hes_for_model,
+      family = bernoulli(),
+      is_good ~ sex + (1 | age2) + (1 | educ) + (1 | imd) + (1 | region) + (1 | is_urban), #+ (1 | educ:age2),
+      #is_good ~ sex + (1 | age),
+      prior = c(set_prior("normal(0.5, 1)", class = "Intercept"),
+                set_prior("normal(0, 1)", class = "b"),
+                set_prior("exponential(1)", class = "sd", group="age2"),
+                set_prior("exponential(1)", class = "sd", group="educ"),
+                set_prior("exponential(1)", class = "sd", group="imd"),
+                set_prior("exponential(1)", class = "sd", group="region"),
+                set_prior("exponential(1)", class = "sd", group="is_urban")#,
+                # set_prior("exponential(1)", class = "sd", group="educ:age2")
+                ),
+      iter = 2000, warmup = 1000, cores = 4, chains=4,
+      seed = 13,
+      backend = "cmdstanr", 
+      control = list(adapt_delta = .95))
+print(Sys.time()-start)
+# saveRDS(model, file = here("MRP", "fit_hse_7.rds"))
+# saveRDS(model, file = here("MRP", "fit_hse_7_nointeract.rds"))
+# model <- readRDS(here("..", "models", "fit_hse_7.rds"))
+model7 <- readRDS(here("..", "models" "fit_hse_7_nointeract.rds"))
+
+model1 <-
+  brm(data = hes_for_model,
+      family = bernoulli(),
+      is_good ~ sex + (1 | age2),
+      prior = c(set_prior("normal(0.5, 1)", class = "Intercept"),
+                set_prior("normal(0, 1)", class = "b"),
+                set_prior("exponential(1)", class = "sd", group="age2")
+                ),
+      iter = 2000, warmup = 1000, cores = 4, chains=4,
+      seed = 13,
+      backend = "cmdstanr", 
+      control = list(adapt_delta = .95))
+
+# saveRDS(model1, file = here("..", "models", "fit_hse_1.rds"))
+model1 <- readRDS(here("..", "models", "fit_hse_1.rds"))
+```
+
+### Example analysis of model outputs
+
+The benefit of modern packages for computational model-building (and Bayesian approach) is that we can take advantage of resampling procedures to derive more interpretable quantities for the variables included in our model. For example, we can ask about the predicted probability of a particular characteristic individual, or an individual living in a particular place, reporting a `good` health outcome. Or what the average difference in likelihood of reporting a good health outcome is for a hypothetical individual of a particular age versus a hypothetical  individual of another age group (conditional on other characteristics being consistent with the sample average). 
+
+The `marginaleffects` package provides a set of functions to do this -- to look at posterior predicted values and comparisons (contrasts) for different, user specified, individuals. There are a few key functions: 
+
+* `marginaleffects::predictions()` extracts from a model the predicted probability in this case of a survey respondent reporting a `good` health outcome. To this function we supply a `newdata` argument with a grid of person characteristics that we want to predict over/for, and a `type` argument setting the scale with which to return predictions.  By default `marginaleffects::predictions()` returns for each row (respondent) in the dataset, but we might want to return predicted values for:
+  + A specific demographic combination (as in postratification frame)
+  + A hypothetical individual with each predictor held at the sample average (mean / mode).
+
+* `marginaleffects::avg_predictions()` takes the average of all predicted values of the dataset -- so imagine predicting out for each observation (respondent) and averaging out their predicted probabilities. But this becomes more useful when we pass a `by` argument to predict for actually observed values of our dataset -- e.g. for particular ages or other characteristics, what is the average probability of the outcome, given our model?
+
+* `marginaleffects::comparisons()` compares two sets of predictions made with different predictor values. The quantity of interest is the difference in predictions when, say, `age` takes on different values. This is done via parameterising the `variables` argument. Risk differences are *conditional* quantities, which vary with the values of all predictors in the model. By default we obtain the comparison (risk difference) for each unit of observation.  
+
+
+So below, I inspect the predicted probability of good health by key demographics and comparing `model1` (using only sex and age) with `model7`, which uses many more covariates.
+
+```{r}
+#| code-fold: true
+#| echo: true
+#| eval: false
+var_levels <- tibble(variable = c("age2", "educ", "region", "imd", "is_urban")) %>% 
+  mutate(levels = map(variable, ~{
+    x <- hes_for_model[[.x]]
+    if (is.numeric(x)) {
+      ""
+    } else if (is.factor(x)) {
+      levels(x)
+    } else if (is.logical(x)) {
+        levels(factor(x))
+    }
+    else {
+      sort(unique(x))
+    }
+  })) %>% 
+  unnest(levels)  
+
+model_var_levels <- bind_rows(
+  var_levels |> filter(variable == "age2") |> add_column(model="model1"), 
+  var_levels |> add_column(model="model7")
+)
+
+
+model_preds <- map2_df(
+  .x = list(model1, model7), 
+  .y = c("model1", "model7"),
+  ~ map_df(model_var_levels |> filter(model == .y) |> pull(variable) |> unique(),
+           function(var) {
+             avg_predictions(.x, by = var, allow_new_levels = TRUE) |> 
+               posterior_draws() |>  
+               add_column(condition = var, model = .y) 
+           })
+)
+
+plot_data <- model_preds |>  
+  mutate(age2 = case_when(
+      str_detect(age2, "age\\d+p$") ~ str_replace(age2, "age(\\d+)p", "\\1+"),
+      str_detect(age2, "age\\d+to\\d+") ~ str_replace(age2, "age(\\d+)to(\\d+)", "\\1 - \\2"),
+      TRUE ~ age2),
+    imd=case_when(
+      imd=="1" ~ "1 most",
+      imd== "5" ~ "5 least",
+      TRUE ~ imd
+      ),
+    region=case_when(
+      region=="East_Midlands" ~ "EM",
+      region=="East_of_England" ~ "E", 
+      region=="North_East" ~ "NE",
+      region=="North_West" ~ "NW",
+      region=="South_East" ~ "SE",
+      region=="South_West" ~ "SW",
+      region=="West_Midlands" ~ "WM",
+      region=="Yorkshire_and_the_Humber" ~ "Y&H",
+      TRUE ~ region),
+    educ=case_when(
+      educ=="level0" ~ "0. none",
+      educ=="level1level2" ~ "1. 2+ GCSEs", 
+      educ=="level3" ~ "3. A-levels", 
+      educ=="level4" ~ "4. degree +",
+      educ=="na" ~ "na/other",
+      educ=="other" ~ "na/other",
+      ),
+    is_urban=case_when(
+      is_urban == FALSE ~ "rural",
+      is_urban == TRUE ~ "urban"),
+    cat_val = case_when(
+      condition == "age2" ~ pick(age2) |>  pull(),
+      condition == "educ" ~ pick(educ) |>  pull(),
+      condition == "region" ~ pick(region) |>  pull(),
+      condition == "imd" ~ pick(imd) |>  pull(),
+      condition == "is_urban" ~ pick(is_urban) |>  pull(),
+      TRUE ~ NA_character_
+    )
+  )
+  
+p <- plot_data |> 
+  filter(!(educ == "na/other" & condition == "educ")) |> 
+  ggplot(aes(x = draw, y = cat_val)) +
+  stat_gradientinterval(
+    slab_size = 3,  
+    #normalize = "xy", 
+    show_interval = FALSE,
+    show_point = FALSE,   
+    colour="#525252",
+   fill="#525252"
+  )  +
+  
+  geom_spoke(data = . %>% group_by(model, condition, cat_val) %>% summarise(draw=mean(draw)), angle=get_radians(90), radius=.5, position="center_spoke",alpha=1, linewidth=.5, colour="#525252") + 
+  
+  scale_x_continuous(labels = scales::label_percent(), breaks=c(.5,.7,.9)) +
+  labs(
+    x = "Predicted probability of **good** health", y = NULL,
+    title = "Predicting over demographics by **model**") +
+  theme(panel.grid.minor = element_blank(), panel.grid.major.y = element_blank()) +
+  geom_vline(xintercept=.777, colour="#525252", linewidth=.2) +
+  coord_cartesian(xlim = c(.45, 1)) + 
+  facet_grid(condition~model, scales="free_y", space="free_y") +
+  theme(
+    axis.title = element_markdown(size=35),
+    plot.title = element_markdown(size=60),
+    axis.text = element_text(size=30),
+    strip.text = element_text(size=30)
+  )
+ggsave(here("..", "figs", "predictions.png"), p, width=6.5, height=5, dpi=300)
+```
+
+
+```{r}
+#| label: fig-predictions
+#| out.width: 100%
+#| fig-cap: ""
+#| echo: false
+#| eval: true
+include_graphics(here("..", "figs", "predictions.png"), error = FALSE)
+```
+
+Here I use `avg_comparisons()` to analyse the average marginal component effect of moving between age ranges, education levels etc. holding other features constant. So with marginal effects, we ask what happens to an outcome when the explanatory variable moves, in this case, between levels. This corresponds with how one would normally interpret coefficients from a regression model.
+
+This function works as follows, as per [`marginaleffects` documentation](https://marginaleffects.com/chapters/comparisons.html):
+
+> 1. Compute predictions for every row of the dataset in the counterfactual world where all observations belong to the treatment condition.
+> 2. Compute predictions for every row of the dataset in the counterfactual world where all observations belong to the control condition.
+> 3. Take the differences between the two vectors of predictions.
+> 4. Average the unit-level estimates across the whole dataset, or within subgroups.
+
+
+```{r}
+#| code-fold: true
+#| echo: true
+#| eval: false
+# Time difference of 2.9 mins
+start <- Sys.time() 
+model_effects <- map2_df(
+  .x = list(model1, model7), 
+  .y = c("model1", "model7"),
+  ~ map_df(model_var_levels |> filter(model == .y) |> pull(variable) |> unique(),
+           function(var) {
+             avg_comparisons(.x, variable = var, allow_new_levels = TRUE) |> 
+               posterior_draws() |> 
+               add_column(condition= var, model = .y)
+           })
+)
+print(Sys.time()-start)
+
+
+effects_nested <- model_effects %>% 
+  separate_wider_delim(
+    contrast,
+    delim = " - ", 
+    names = c("variable_level", "reference_level")
+  ) %>% 
+  group_by(variable_level, reference_level, model) %>% 
+  nest()
+
+
+map2_df(
+  .x = list(model1, model7), 
+  .y = c("model1", "model7"),
+  ~ map_df(model_var_levels |> filter(model == .y) |> pull(variable) |> unique()
+
+
+plot_data <- model_var_levels |> 
+  left_join(
+    effects_nested,
+    by = join_by(levels == variable_level, model == model)
+  ) |> 
+  mutate(data = map_if(data, is.null, ~ tibble(draw = 0, estimate = 0))) |> 
+  unnest(data) 
+
+plot_data_m1 <- plot_data |> filter(model =="model1") |> 
+  pivot_wider(names_from=condition, values_from=levels) |> 
+  mutate(age2 = case_when(
+      str_detect(age2, "age\\d+p$") ~ str_replace(age2, "age(\\d+)p", "\\1+"),
+      str_detect(age2, "age\\d+to\\d+") ~ str_replace(age2, "age(\\d+)to(\\d+)", "\\1 - \\2"),
+      is.na(age2) ~ "0 - 15",
+      TRUE ~ age2),
+    cat_val = case_when(
+      variable == "age2" ~ pick(age2) |>  pull(),
+      TRUE ~ NA_character_
+    )
+  ) |> 
+  select(model, variable, draw, cat_val)
+  
+plot_data_m7 <- plot_data |> filter(model =="model7") |> 
+  pivot_wider(names_from=condition, values_from=levels) |> 
+  mutate(age2 = case_when(
+      str_detect(age2, "age\\d+p$") ~ str_replace(age2, "age(\\d+)p", "\\1+"),
+      str_detect(age2, "age\\d+to\\d+") ~ str_replace(age2, "age(\\d+)to(\\d+)", "\\1 - \\2"),
+      is.na(age2) ~ "0 - 15",
+      TRUE ~ age2),
+    imd=case_when(
+      imd=="1" ~ "1 most",
+      imd== "5" ~ "5 least",
+      is.na(imd) ~ "1 most",
+      TRUE ~ imd
+      ),
+    region=case_when(
+      region=="East_Midlands" ~ "EM",
+      region=="East_of_England" ~ "E", 
+      region=="North_East" ~ "NE",
+      region=="North_West" ~ "NW",
+      region=="South_East" ~ "SE",
+      region=="South_West" ~ "SW",
+      region=="West_Midlands" ~ "WM",
+      region=="Yorkshire_and_the_Humber" ~ "Y&H",
+      is.na(region) ~ "EM",
+      TRUE ~ region),
+    educ=case_when(
+      educ=="level0" ~ "0. none",
+      educ=="level1level2" ~ "1. 2+ GCSEs", 
+      educ=="level3" ~ "3. A-levels", 
+      educ=="level4" ~ "4. degree +",
+      educ=="na" ~ "na/other",
+      educ=="other" ~ "na/other",
+      is.na(educ) ~ "0. none",
+      TRUE ~ educ
+      ),
+    is_urban=case_when(
+      is_urban == FALSE ~ "rural",
+      is_urban == TRUE ~ "urban",
+      is.na(is_urban) ~ "rural",
+      TRUE ~ is_urban
+      ),
+    cat_val = case_when(
+      variable == "age2" ~ pick(age2) |>  pull(),
+      variable == "educ" ~ pick(educ) |>  pull(),
+      variable == "region" ~ pick(region) |>  pull(),
+      variable == "imd" ~ pick(imd) |>  pull(),
+      variable == "is_urban" ~ pick(is_urban) |>  pull(),
+      TRUE ~ NA_character_
+    )
+  ) |> 
+  select(model, variable, draw, cat_val)
+
+plot_data <- bind_rows(plot_data_m1, plot_data_m7)  
+
+p <- plot_data |> 
+ ggplot(aes(x = draw, y = cat_val)) +
+  stat_gradientinterval(
+    slab_size = 3,  
+    #normalize = "xy", 
+    show_interval = FALSE,
+    show_point = FALSE,   
+    colour="#525252",
+   fill="#525252"
+  )  +
+  
+  geom_spoke(data = . %>% group_by(model, variable, cat_val) %>% summarise(draw=mean(draw)), angle=get_radians(90), radius=.5, position="center_spoke",alpha=1, linewidth=.5, colour="#525252") + 
+  
+  
+  theme(panel.grid.minor = element_blank(), panel.grid.major.y = element_blank()) +
+  geom_vline(xintercept=0, colour="#525252", linewidth=.2) +
+  
+  scale_x_continuous(labels = scales::label_percent()) +
+  
+  facet_grid(variable~model, scales="free_y", space="free_y") +
+  
+  #facet_grid(variable~., scales="free_y", space="free_y") +
+   labs(
+    y = NULL,
+    title = "Posterior 'marginal effects'",
+    #subtitle = "-- moving between levels of explanatory variables",
+    x="% change in **good** health from control level", y=""
+  ) +
+  theme(
+    axis.title = element_markdown(size=35),
+    plot.title = element_markdown(size=60),
+    plot.subtitle = element_markdown(size=35),
+    axis.text = element_text(size=30),
+    strip.text = element_text(size=30)
+  )
+ggsave(here("..", "figs","comparisons.png"), p, width=6.5, height=5, dpi=300)
+```
+
+```{r}
+#| label: fig-comparisons
+#| out.width: 100%
+#| fig-cap: ""
+#| echo: false
+#| eval: true
+include_graphics(here("..", "figs", "comparisons.png"), error = FALSE)
+```
+
+
+## Example poststratification
+
+At poststratification, we predict over the outcome for each of the 'strata' defined by the poststratification frame (`ps`). I've wrapped this into a function so that we poststratify per model. Here I also calculate absolute errors for each postratification model prediction.
+
+
+```{r}
+#| echo: true
+#| eval: false
+# Predict over binary outcome mode
+ps_health <-  function(model, model_spec, ps) {
+  p <- model |> 
+  add_epred_draws(newdata = ps, ndraws=500, allow_new_levels = TRUE) |>
+  rename(pred_good_health = .epred) |>
+  mutate(pred_good_health_prop = pred_good_health * prop) |> 
+  ungroup() |> 
+  summarise(pred_good_health = sum(pred_good_health_prop),
+            .by = c(zone_id, .draw)) |> 
+  summarise(
+    mean = mean(pred_good_health),
+    lower = quantile(pred_good_health, 0.025),
+    upper = quantile(pred_good_health, 0.975),
+    .by = zone_id
+  ) |> 
+  left_join(health |> mutate(obs_good = good+verygood) |> select(zone_id, obs_good)) |> 
+  left_join(zone_totals) |> 
+  mutate(
+    exp_good=mean*hhd, 
+    exp_notgood=hhd-exp_good,
+    obs_notgood=hhd-obs_good,
+    sum_tae=abs(exp_good-obs_good) + abs(exp_notgood-obs_notgood),
+    prop_tae=sum_tae/hhd
+    ) |> 
+  pivot_longer(cols=c(exp_good, exp_notgood, obs_good, obs_notgood), values_to="count", names_to="type") |> 
+  separate_wider_delim(col=type, names=c("type", "health"), delim="_") |> 
+  pivot_wider(names_from = type, values_from = count) |> 
+  add_column(mrp=model_spec)
+ 
+  return(p)
+}
+```
+
+
+I then post-stratify over each model, within a `purrr::map()`. 
+
+```{r}
+#| echo: true
+#| eval: false
+mrp_results <- map2_df(
+  .x=list(model1, model), 
+  .y=c("model1", "model7"),
+  ~ps_health(.x, .y, ps2 |> mutate(age2=age))
+)
+```
+
+Results from the `FMF` (spatial microsimulation model) are stored in a separate `.csv` file. After loading into the session, I refactor this data frame so that it can be joined, with `bind_rows`, on the MRP results.
+
+
+```{r}
+#| echo: false
+#| eval: false
+# Fetch FMF results
+fmf_results <- read_csv(here("FMF", "Geodemographic", "GH_ALL.csv")) |> 
+  mutate(zone_id=MSOA21CD, exp_good=Good+ `Very Good`) |>  select(zone_id, exp_good, FMF) |> 
+  left_join(health |> mutate(obs_good = good+verygood) |> select(zone_id, obs_good)) |> 
+  left_join(zone_totals) |> 
+  filter(zone_id %in% (msoa_boundaries |> pull(MSOA21CD)) ) |> 
+  mutate(
+    exp_notgood=hhd-exp_good,
+    obs_notgood=hhd-obs_good,
+    sum_tae=abs(exp_good-obs_good) + abs(exp_notgood-obs_notgood),
+    prop_tae=sum_tae/hhd
+    ) |> 
+  pivot_longer(cols=c(exp_good, exp_notgood, obs_good, obs_notgood), values_to="count", names_to="type") |> 
+  separate_wider_delim(col=type, names=c("type", "health"), delim="_") |> 
+  pivot_wider(names_from = type, values_from = count) |> 
+  mutate(
+    FMF=case_when(
+      FMF == "GOR2" ~ "region",
+      FMF == "SHA2" ~ "sha",
+      FMF == "SexbyAge" ~ "sex_age",
+      FMF == "qimd19_2" ~ "imd",
+      FMF == "urban14b_2" ~ "is_urban",
+      FMF == "GOR2_qimd19_2" ~ "imd_region",
+      FMF == "GEO2_qimd19_2_SbyAbyQual" ~ "educ_imd_region",
+      TRUE ~ FMF),
+     spec=FMF,
+     type="fmf"
+    ) |> 
+  select(-FMF)
+```
+
+
+So `bind_rows()` on MRP and FMF results.
+
+```{r}
+#| echo: true
+#| eval: false
+results <- bind_rows(
+  fmf_results |> filter(spec %in% c("sex_age", "educ_imd_region")) |> 
+    mutate(spec=if_else(spec=="sex_age", "model1", "model7"), mean=0, lower=0, upper=0) , 
+  mrp_results |> filter(!is.na(hhd)) |>  rename(spec=mrp) |> 
+    mutate(type="mrp")  #|> select(-c(mean, lower, upper))
+) |> 
+filter(spec!="Census", spec!="RM42_46_120_SxA_qimd19") |> 
+  filter(!is.na(hhd)) |> 
+  mutate(
+    perc_obs=obs/hhd, perc_exp=exp/hhd, perc_tae=abs(perc_obs-perc_exp),
+    resid=(obs-exp)/sqrt(exp)
+  ) 
+```
+
+
+Another external table is that describing Information Entropy scores, per area, on the outcome estimates derived from the spatial microsimulation. This describes how much our models need to draw from a diminishing set of survey respondents, as we constrain on more variables.
+
+```{r}
+#| echo: false
+#| eval: false
+shannon <- read_csv(here("FMF", "Geodemographic", "Shannon.csv")) |> 
+  rename(zone_id = Var1, spec="SMS") |> 
+  mutate(
+    spec=case_when(
+      spec == "GOR2" ~ "region",
+      spec == "SHA2" ~ "sha",
+      spec == "SexbyAge" ~ "sex_age",
+      spec == "qimd19_2" ~ "imd",
+      spec == "urban14b_2" ~ "is_urban",
+      spec == "GOR2_qimd19_2" ~ "imd_region",
+      spec == "GEO2_qimd19_2_SbyAbyQual" ~ "educ_imd_region",
+      TRUE ~ spec),
+     type="fmf"
+    ) |> 
+  filter(spec %in% c("sex_age", "educ_imd_region")) |> 
+    mutate(spec=if_else(spec=="sex_age", "model1", "model7"))
+```
+
+
+## Example SAE evaluation
+
+Staging data for plots.
+
+```{r}
+#| echo: true
+#| eval: false
+plot_data <- results |> filter(health=="good") |> 
+ mutate(resid=(obs-exp)/sqrt(exp), perc_obs=obs/hhd, perc_exp=exp/hhd) |> 
+  group_by(type, spec) |> 
+  mutate(
+    resid_est=mean(resid), resid_var=sd(resid),
+    obs_est=mean(obs), obs_var=sd(obs),
+    exp_est=mean(exp), exp_var=sd(exp)
+  ) |> ungroup() |> 
+  select(zone_id, type, spec, resid_val=resid, resid_est, resid_var, 
+         obs_val=obs, exp_val=exp, obs_est, obs_var, exp_est, exp_var, perc_obs, perc_exp, sum_tae, prop_tae, perc_tae) |> 
+  pivot_longer(-c(zone_id, type, spec, sum_tae, prop_tae, perc_tae), names_to="stat") |> 
+  separate_wider_delim(stat, delim="_", names=c("stat", "stat_type")) |> 
+  pivot_wider(names_from=stat_type, values_from=value) |> 
+  mutate(lower=est-2*(var/sqrt(6842)), upper=est+2*(var/sqrt(6842))) |> 
+  mutate(
+    spec=factor(spec, levels=c("model1", "model7"))
+  ) 
+```
+
+
+For plots evaluating model performance, I generate several helper functions. These are quite specialised to the HSE case, so I need to return to these to generalise when doing comparisons on other model case studies.
+
+
+```{r}
+#| code-fold: true
+#| echo: true
+#| eval: false
+# Map residuals
+map_resids <- function(dat, censor) {
+  
+  # Spatial extent of geog.
+  bbox <- st_bbox(dat)
+  map_width <- bbox$xmax-bbox$xmin
+  map_height <- bbox$ymax-bbox$ymin
+  
+  # Draw map
+  map <- dat |> 
+    mutate(resid=pmin(resid,censor)) |> 
+  ggplot() +
+  geom_sf(data=. %>% summarise(), fill="transparent", linewidth=.45, colour="#525252") +
+  geom_sf(aes(fill=resid), linewidth=0) +
+  geom_sf(data=. %>% group_by(region) %>% summarise(), fill="transparent", linewidth=.25, colour="#ffffff") +
+  coord_sf(xlim = c(unname(bbox$xmin)+.2*map_width, unname(bbox$xmax)+.5*map_width)) +
+  scale_fill_distiller(palette="RdBu", limits=c(-censor,censor), direction=1)   +
+  # Annotate model performance.
+    geom_text(data = . %>% summarise(),
+    aes(x=bbox$xmax+.2*map_width, y=bbox$ymax-.2*map_height, label="MAE"), hjust="right",vjust="top", size=6.5, colour="#525252",
+  ) +
+  geom_text(data = . %>% summarise(mae = mean(sum_tae),perc_mae= mean(perc_tae)),
+    aes(x=bbox$xmax+.2*map_width, y=bbox$ymax-.28*map_height, label=paste0("# ", round(mae,0))), hjust="right",vjust="top", size=6.5, colour="#525252",
+  ) +
+  geom_text(data = . %>% summarise(mae = mean(sum_tae),perc_mae= mean(perc_tae)),
+    aes(x=bbox$xmax+.2*map_width, y=bbox$ymax-.36*map_height, label=paste0("% ",round(perc_mae*100,1))), hjust="right",vjust="top", size=6.5, colour="#525252",
+  ) +
+  # Strip out chart assembly.
+  guides(fill="none") +
+  theme(
+    panel.background = element_rect(fill = NA, color = NA),  
+    plot.background = element_rect(fill = NA, color = NA), 
+    axis.text.x = element_blank(), axis.line = element_blank(), 
+    axis.text.y = element_blank(), axis.title.x = element_blank(), 
+    axis.title.y = element_blank(), 
+    plot.margin = margin(0, 0, 0, 0, "pt")
+  )
+  
+  bars <- dat |> st_drop_geometry() |>  
+     mutate(resid=pmin(resid,censor)) |>
+    ggplot(aes(x=resid)) +
+    geom_histogram(aes(fill = after_stat(x)), linewidth=0) +
+    geom_step(stat = "bin", colour = "#525252", linewidth = .15, 
+           position = position_nudge(x=-.55)) +
+  
+  # Fill with the same palette as the map
+  scale_fill_distiller(palette="RdBu", limits=c(-censor,censor), direction=1, guide="none")   +
+  scale_x_continuous(limits = c(-censor, censor), expand=c(0, 0)) +
+  scale_y_continuous(expand=c(0, 0)) +
+  labs(x = "") +
+  theme(
+    panel.background = element_rect(fill = NA, color = NA),  
+    plot.background = element_rect(fill = NA, color = NA),
+      plot.margin = margin(0, 0, 0, 0, "pt"),
+    axis.text.y=element_blank(), axis.title.y=element_blank(), 
+    axis.line = element_blank(), axis.text.x = element_blank()
+  )
+  
+  return(map + inset_element(bars,.65,-.1,1,.55))
+}
+# Map Entropy / Prediction intervals
+map_intervals <- function(dat, max_scaled) {
+  
+  # Spatial extent of geog.
+  bbox <- st_bbox(dat)
+  map_width <- bbox$xmax-bbox$xmin
+  map_height <- bbox$ymax-bbox$ymin
+  
+  map <- dat |> 
+    mutate(interval = interval/max_scaled) |> 
+  ggplot() +
+  geom_sf(data=. %>% summarise(), fill="transparent", linewidth=.4, colour="#525252") +
+  geom_sf(aes(fill=interval), linewidth=0) +
+  geom_sf(data= . %>% group_by(region) %>% summarise(), fill="transparent", linewidth=.25, colour="#ffffff") +
+    coord_sf(xlim = c(unname(bbox$xmin)+.1*map_width, unname(bbox$xmax)+.5*map_width)) +
+    scale_fill_distiller(palette="Blues", limits=c(0,1), direction=1, breaks = c(0.1,.9)) +
+    guides(fill="none") +
+    theme(
+    panel.background = element_rect(fill = NA, color = NA),  
+    plot.background = element_rect(fill = NA, color = NA), 
+    axis.text.x = element_blank(), axis.line = element_blank(), 
+    axis.text.y = element_blank(), axis.title.x = element_blank(), 
+    axis.title.y = element_blank(), 
+    plot.margin = margin(0, 0, 0, 0, "pt")
+  )
+  
+  bars <- dat |> st_drop_geometry() |>  
+    mutate(interval = interval/max_scaled) |>
+    ggplot(aes(x=interval)) +
+    geom_histogram(aes(fill = after_stat(x)), linewidth=0) +
+    geom_step(stat = "bin", colour = "#525252", linewidth = .1, 
+           position = position_nudge(x=-.015)) +
+  
+  # Fill with the same palette as the map
+  scale_fill_distiller(palette="Blues", limits=c(0,1), direction=1, breaks = c(0.1,.9), guide="none") +
+  scale_x_continuous(limits = c(0, 1), expand=c(0, 0)) +
+  scale_y_continuous(expand=c(0, 0)) +
+  labs(x = "") +
+  theme(
+    panel.background = element_rect(fill = NA, color = NA),  
+    plot.background = element_rect(fill = NA, color = NA),
+      plot.margin = margin(0, 0, 0, 0, "pt"),
+    axis.text.y=element_blank(), axis.title.y=element_blank(), 
+    axis.line = element_blank(), axis.text.x = element_blank()
+  )
+  
+  return(map + inset_element(bars,.65,-.1,1,.55))
+  
+}
+# Map shannon
+map_shannon <- function(dat, max_scaled) {
+  
+  # Spatial extent of geog.
+  bbox <- st_bbox(dat)
+  map_width <- bbox$xmax-bbox$xmin
+  map_height <- bbox$ymax-bbox$ymin
+  
+  map <- dat |> 
+    mutate(entropy = shannon/max_scaled) |> 
+  ggplot() +
+  geom_sf(data=. %>% summarise(), fill="transparent", linewidth=.4, colour="#525252") +
+  geom_sf(aes(fill=entropy), linewidth=0) +
+  geom_sf(data= . %>% group_by(region) %>% summarise(), fill="transparent", linewidth=.25, colour="#ffffff") +
+    coord_sf(xlim = c(unname(bbox$xmin)+.1*map_width, unname(bbox$xmax)+.5*map_width)) +
+    scale_fill_distiller(palette="Blues", limits=c(0,1), direction=-1, breaks = c(0.1,.9)) +
+    guides(fill="none") +
+    theme(
+    panel.background = element_rect(fill = NA, color = NA),  
+    plot.background = element_rect(fill = NA, color = NA), 
+    axis.text.x = element_blank(), axis.line = element_blank(), 
+    axis.text.y = element_blank(), axis.title.x = element_blank(), 
+    axis.title.y = element_blank(), 
+    plot.margin = margin(0, 0, 0, 0, "pt")
+  )
+  
+  bars <- dat |> st_drop_geometry() |>  
+    mutate(entropy = shannon/max_scaled) |>
+    ggplot(aes(x=entropy)) +
+    geom_histogram(aes(fill = after_stat(x)), linewidth=0) +
+    geom_step(stat = "bin", colour = "#525252", linewidth = .1, 
+           position = position_nudge(x=-.015)) +
+  
+  # Fill with the same palette as the map
+  scale_fill_distiller(palette="Blues", limits=c(0,1), direction=-1, breaks = c(0.1,.9), guide="none") +
+  scale_x_continuous(limits = c(0, 1), expand=c(0, 0)) +
+  scale_y_continuous(expand=c(0, 0)) +
+  labs(x = "") +
+  theme(
+    panel.background = element_rect(fill = NA, color = NA),  
+    plot.background = element_rect(fill = NA, color = NA),
+      plot.margin = margin(0, 0, 0, 0, "pt"),
+    axis.text.y=element_blank(), axis.title.y=element_blank(), 
+    axis.line = element_blank(), axis.text.x = element_blank()
+  )
+  
+  return(map + inset_element(bars,.65,-.1,1,.55))
+  
+}
+# Model labs
+model_labs<- function(spec) {
+ p <-  ggplot() +
+    annotate("richtext", x=0,y=.5, label=spec, hjust="left",vjust="middle", label.colour = NA, size=9, colour="#525252", fill="transparent") +
+   scale_x_continuous(limits=c(0,1), expand=c(0, 0)) +
+   scale_y_continuous(limits=c(0,1), expand=c(0, 0)) +
+  theme_void() +
+     theme(
+    plot.margin = unit(c(0, 0, 0, 0), "pt"),        
+    panel.background = element_rect(fill = NA, color = NA),  
+    plot.background = element_rect(fill = NA, color = NA)   
+  )
+return(p)
+}
+```
+
+I then iterate over each model and generate plot summaries: maps of residuals, of prediction intervals (MRP) and Information Emntropy (SPM).
+
+```{r}
+#| code-fold: true
+#| echo: true
+#| eval: false
+subsets_order <- c("model1", "model7")
+subsets <- tibble(type=c(rep("mrp",2), rep("fmf",2)), spec=rep(subsets_order,2))
+p_resids <- pmap(subsets,  
+                 ~map_resids(
+                   dat=results |>
+                     filter(health=="good", type==..1, spec==..2) |> 
+                     left_join(msoa_boundaries, by=c("zone_id"="MSOA21CD")) |> st_as_sf() |> 
+                     left_join(geog |> select(zone_id, region)), 
+                   censor=20)
+)
+max_scaled <- results |> filter(type == "mrp") |> mutate(interval=upper-lower) |>  
+  group_by(spec) |> 
+  summarise(max=max(interval))
+p_intervals <- pmap(subsets |> filter(type == "mrp"), 
+                 ~map_intervals(
+                   dat=results |>
+                     filter(type==..1, spec==..2) |> 
+                     left_join(msoa_boundaries, by=c("zone_id"="MSOA21CD")) |> st_as_sf() |> 
+                     left_join(geog |> select(zone_id, region)) |> 
+                     mutate(interval=upper-lower),
+                   max_scaled |> filter(spec==..2) |> pull(max)
+                   )
+                 )
+
+max_scaled <- shannon |> group_by(spec) |>  summarise(max=max(shannon)) 
+p_shannon <- pmap(subsets |> filter(type == "fmf"), 
+                 ~map_shannon(
+                   dat=shannon |>
+                     filter(type==..1, spec==..2) |> 
+                     left_join(msoa_boundaries, by=c("zone_id"="MSOA21CD")) |> st_as_sf() |> 
+                     left_join(geog |> select(zone_id, region)),
+                    max_scaled |> filter(spec==..2) |> pull(max)
+                   )
+                 )
+p_model_labs <- map(subsets |> filter(type=="mrp") |>  select(spec) |> pull(), ~model_labs(.x))
+
+# Generate patchwork plots for each model summary type
+composite_labs <- (p_model_labs[[1]] / p_model_labs[[2]])
+composite_resids_mrp <- (p_resids[[1]] / p_resids[[2]])
+composite_resids_spm <- (p_resids[[3]] / p_resids[[4]])
+composite_shannon <- (p_shannon[[1]] / p_shannon[[2]])
+composite_intervals <- (p_intervals[[1]] / p_intervals[[2]])
+
+# View composition of each of these summaries.
+comp_plot <- (composite_labs | composite_resids_mrp | composite_intervals |  composite_resids_spm | composite_shannon) + plot_layout(widths=c(.25,1,.9, 1,.9))
+comp_plot_gg <- patchworkGrob(comp_plot)
+
+# Annotate composed plots.
+p <- ggplot() +
+  scale_y_continuous(limits=c(-.1,1.05), expand=c(0, 0)) +
+  scale_x_continuous(limits=c(0,1.05), expand=c(0, 0)) +
+  annotation_custom(comp_plot_gg, xmin = 0, ymin = 0, xmax = 1, ymax = 1) +
+
+  theme(
+    axis.title.x=element_blank(), axis.title.y=element_blank(),
+    axis.text = element_blank(), axis.line = element_blank(),
+    plot.margin = unit(c(0, 0, 0, 0), "pt"),       
+    panel.background = element_rect(fill = "#ffffff", color = NA),  
+    plot.background = element_rect(fill = "#ffffff", color = NA)    
+  ) +
+  
+  
+  # Model titles
+    annotate("richtext", x=.25,y=1.05, hjust="left",vjust="top", label.colour = NA, size=12, colour="#525252", fill="transparent",
+           label="MRP" ) +
+    annotate("richtext", x=.73,y=1.05, hjust="left",vjust="top", label.colour = NA, size=12, colour="#525252", fill="transparent",
+           label="SPM" ) +
+
+  
+  # Legends: fiddly use of annotate, as <br> unexpected in ggtext.
+  annotate("segment", x=0,y=0, xend=1.05, yend=0, colour="#525252", linewidth=.1) +
+
+    annotate("richtext", x=.08,y=0, hjust="left",vjust="top", label.colour = NA, 
+  size=6.5, colour="#525252", fill="transparent",
+           label="Residuals: obs-model / sqrt(model)" ) +
+    annotate("richtext", x=.1,y=-.03, hjust="left",vjust="top", label.colour = NA, size=6.5, colour="#525252", fill="transparent",
+           label="<span style='color: #b2182b'>**underestimate**</span> |
+           <span style='color: #2166ac;'>**overestimate**</span>" ) +
+  
+   annotate("richtext", x=.31,y=.0, hjust="left",vjust="top", label.colour = NA, size=6.5, colour="#525252", fill="transparent",
+           label="Prediction intervals") +
+  annotate("richtext", x=.31,y=-.03, hjust="left",vjust="top", label.colour = NA, size=6.5, colour="#525252", fill="transparent",
+           label="<span style='color: #9ecae1;'>**narrower**</span> | <span style='color: #084594;'>**wider**</span>") +
+           
+  annotate("richtext", x=.8,y=.0, hjust="left",vjust="top", label.colour = NA, size=6.5, colour="#525252", fill="transparent",
+           label="Entropy") +
+    annotate("richtext", x=.8, y=-.03, hjust="left",vjust="top", 
+             label.colour = NA, size=6.5, colour="#525252", 
+             fill="transparent",
+             label = "<span style='color: #9ecae1;'>**high diversity**</span> | <span style='color: #084594;'>**low diversity**</span><br>~ more respondents") +
+      
+  annotate("richtext", x=.55,y=0, hjust="left", vjust="top", label.colour = NA, size=6.5, colour="#525252", fill="transparent",
+           label="Mean abs error:" ) +
+    annotate("richtext", x=.55,y=-.03, hjust="left", vjust="top", label.colour = NA, size=6.5, colour="#525252", fill="transparent",
+           label="<span># good & bad | % good</span>" ) +
+  
+  annotate("text", x=.67,y=.065, hjust="left",vjust="top",  size=6.5, colour="#525252", 
+           label="Extreme estimates") +
+  annotate("text", x=.67,y=.035, hjust="left",vjust="top",  size=6.5, colour="#525252", 
+           label="are censored") +
+  annotate("curve", x=.72, xend=.76, y=.075, yend=.12, linewidth=.2, colour="#525252", arrow = arrow(length = unit(0.006, "npc")), curvature = -0.4)  
+
+ggsave(here("..", "figs", "model_summary.png"), p, width=8, height=4, dpi=300)
+```
+
+```{r}
+#| label: fig-models
+#| out.width: 100%
+#| fig-cap: ""
+#| echo: false
+#| eval: true
+include_graphics(here("..", "figs", "model_summary.png"), error = FALSE)
+```
