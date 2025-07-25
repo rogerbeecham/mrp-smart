@@ -33,9 +33,9 @@ The project closely overlaps SDR UK priorities insofar as it:
 
 *   **Builds research capability**: By producing reproducible code, open-source packages, and explanatory data stories, the project will lower the barrier to entry for MRP implementation, and will emphasise/exploit the intuition behind Bayesian methods.
 
-*   **Generates high-impact data products that enhance existing data assets:** The  datasets describing neighbourhood-level financial, health, and mobility outcomes, with full uncertainty estimates, closely map to SDR UK's thematic pillars. They will provide a valuable resource for researchers and policy-makers alike, enabling them to address significant social and economic challenges with direct policy relevance.
+*   **Generates high-impact data products that enhance existing data assets:** The  datasets, estimating unknwown financial, health, and mobility outcomes at neighbourhood level, will be a novel resource for analysts and policy-makers.
 
-*   **Promotes trustworthy and responsible research**: Through consistently quantifying and communicating uncertainty information, and borrowing from novel empirically-validated techniques in uncertainty communication. The planned data stories will make these complex outputs accessible, helping to **safeguard public trust** by transparently explaining the methods and their inherent uncertainties to the target policy-makers and social data analysts who will use them.
+*   **Promotes trustworthy and responsible research**:  The lead researchers are expert in uncertainty communication and analysis and will deploy noverl techniques for communicating data and model outputs in an accessible and transparent way to the target policy-makers and social data analysts who will use them.
 
 
 ###	Expected outputs and deliverables
