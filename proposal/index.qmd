@@ -1,7 +1,7 @@
 ---
-title: "SMART-MRP"
-subtitle: Simulating place-based opinion and outcomes from behavioural datasets"
-author: "Roger Beecham"
+title: SMART-MRP
+subtitle: Simulating place-based opinion and outcomes from behavioural datasets
+author: Roger Beecham
 format: html
 ---
 
@@ -10,7 +10,7 @@ format: html
 
 ***Summary***
 
-*SMART-MRP* will generate a collection of datasets estimating neighbourhood-level opinion and outcomes from 'smart' behavioural datasets. It will do so by applying Multilevel Regression and Poststratification (MRP), a technique for small area estimation (SAE) little-used outside of Political Polling, but with obvious potential for smart data research. As well as a collection of  datasets describing the financial, health and mobility outcomes of populations living in neighbourhoods of the UK, *SMART-MRP* will contribute a methodological framework, with code repositories and open source packages, that lower the barrier to entry to MRP in social data analysis. The project will also provide a set of data stories that *explain* the MRP approach, its underlying uncertainties, and that could be used to assist policy-makers in mobility, health, and sustainability to use the derived datasets for decision-making.
+*SMART-MRP* will generate a collection of datasets estimating neighbourhood-level opinion and outcomes from social surveys and non-representative 'smart data' -- passively-collected observations describing individual-level behaviours and transactions. It will do so by applying Multilevel Regression and Poststratification (MRP), a technique for small area estimation (SAE) little-used outside of Political Polling, but with obvious potential for smart data research. As well as a collection of  datasets describing the financial, health and mobility outcomes of populations living in UK neighbourhoods, *SMART-MRP* will contribute a methodological framework, with code repositories and open source packages, that lower the barrier to entry to MRP in social data analysis. The project will also provide a set of data stories that *explain* the MRP approach, its underlying uncertainties, and that could be used to assist policy-makers in mobility, health, and sustainability to use the derived datasets for decision-making.
 
 ***Context***
 
