@@ -322,7 +322,7 @@ ggsave(here("..", "figs", "bias_hse2.png"), bias_hse, width=8, height=4.5, dpi=3
 #| fig-cap: ""
 #| echo: false
 #| eval: true
-include_graphics(here("..", "figs", "bias_hse2.png"), error = FALSE)
+include_graphics(here("figs", "bias_hse2.png"), error = FALSE)
 ```
 
 ## Model
@@ -381,7 +381,7 @@ ggsave(here("..", "figs", "prior.png"), p, width=4.5, height=3, dpi=300)
 #| fig-cap: ""
 #| echo: false
 #| eval: true
-include_graphics(here("..", "figs", "prior.png"), error = FALSE)
+include_graphics(here("figs", "prior.png"), error = FALSE)
 ```
 
 
@@ -567,7 +567,7 @@ ggsave(here("..", "figs", "predictions.png"), p, width=6.5, height=5, dpi=300)
 #| fig-cap: ""
 #| echo: false
 #| eval: true
-include_graphics(here("..", "figs", "predictions.png"), error = FALSE)
+include_graphics(here("figs", "predictions.png"), error = FALSE)
 ```
 
 Here I use `avg_comparisons()` to analyse the average marginal component effect of moving between age ranges, education levels etc. holding other features constant. So with marginal effects, we ask what happens to an outcome when the explanatory variable moves, in this case, between levels. This corresponds with how one would normally interpret coefficients from a regression model.
@@ -734,7 +734,7 @@ ggsave(here("..", "figs","comparisons.png"), p, width=6.5, height=5, dpi=300)
 #| fig-cap: ""
 #| echo: false
 #| eval: true
-include_graphics(here("..", "figs", "comparisons.png"), error = FALSE)
+include_graphics(here("figs", "comparisons.png"), error = FALSE)
 ```
 
 
@@ -1199,5 +1199,5 @@ ggsave(here("..", "figs", "model_summary.png"), p, width=8, height=4, dpi=300)
 #| fig-cap: ""
 #| echo: false
 #| eval: true
-include_graphics(here("..", "figs", "model_summary.png"), error = FALSE)
+include_graphics(here("figs", "model_summary.png"), error = FALSE)
 ```
