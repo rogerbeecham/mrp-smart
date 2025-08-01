@@ -8,6 +8,9 @@ project:
 execute:
   freeze: auto
 
+bibliography: files/bib/references.bib
+csl: files/bib/chicago-author-date.csl
+
 website:
   title: "MRP-Smart"
   navbar:

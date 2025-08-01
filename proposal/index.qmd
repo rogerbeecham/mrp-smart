@@ -1,6 +1,6 @@
 ---
-title: SMART-MRP
-subtitle: Simulating place-based opinion and outcomes from behavioural datasets
+title: MRP-SMART
+subtitle: Estimating place-based and cross-sectional financial outcomes from everyday transactions
 author: Roger Beecham
 format: html
 ---
@@ -10,7 +10,8 @@ format: html
 
 ***Summary***
 
-*SMART-MRP* will generate a collection of datasets estimating neighbourhood-level opinion and outcomes from social surveys and non-representative 'smart data' -- passively-collected observations describing individual-level behaviours and transactions. It will do so by applying Multilevel Regression and Poststratification (MRP), a technique for small area estimation (SAE) little-used outside of Political Polling, but with obvious potential for smart data research. As well as a collection of  datasets describing the financial, health and mobility outcomes of populations living in UK neighbourhoods, *SMART-MRP* will contribute a methodological framework, with code repositories and open source packages, that lower the barrier to entry to MRP in social data analysis. The project will also provide a set of data stories that *explain* the MRP approach, its underlying uncertainties, and that could be used to assist policy-makers in mobility, health, and sustainability to use the derived datasets for decision-making.
+*MRP-SMART* is a collaboration between Financial (FINDS) and the Healthy and Sustainable Places (HASP) Data Services.  The project will generate a collection of datasets estimating the financial outcomes of populations living in small areas from individual-level banking and financial records. It will do so by applying Multilevel Regression and Poststratification (MRP), a technique for small area estimation (SAE) little-used outside of Political Polling, but with obvious potential for addressing issues of representativeness in smart data research. The primary output is a suite of datasets describing the financial outcomes of populations living in UK neighbourhoods. Secondarily, *MRP-SMART* will incorporate these estimates into FINDS' existing tools, such as the [Economic Wellbeing Explorer](https://smartdatafoundry.com/solutions/insights/economic-wellbeing-explorer) dashboard. Since *MRP-SMART* uses a fully-Bayesian modelling approach, estimates for different combinations of area-level and demographic subsets can be straightforwardly derived and for each uncertainty ranges in the natural units of that outcome. This has real benefit for policy-makers in that estimates are framed in a concrete, policy-relevant and intuitive way. As part of the work on the Economic Wellbeing Explorer tool, we will generate a set of materials -- data stories -- that *explain* how the MRP-based estimates can be used to assist decision-making. A third ooutcome is the  methodological framework: *MRP-SMART* will curate documented code repositories and open source packages that lower the barrier to entry to applying MRP in smart data research.
+
 
 ***Context***
 
@@ -18,14 +19,13 @@ In social research, samples from surveys are routinely used to estimate the char
 
 In Multilevel Regression and Poststratification (MRP), the outcome of interest is first modelled (MR) from the survey / microdata using a range of individual (respondent) demographics and group (area-level) context variables. Next, a 'poststratification frame' is constructed, whereby, for every small-area unit the analyst wishes to estimate over, joint counts are derived from Census or other administrative data for the different demographics and area-level variables used in the model. At poststratification (P), predicted probabilities of the outcome are extracted from the model for each row of the postratification frame. Multiplying these probabilities by the joint counts, we can estimate the extent of the target outcome occurring in the small-area.
 
-The key advantage of MRP is in its use of Bayesian multilevel models. It is common in SAE that certain demographic combinations have little or no representation in the sample data, especially when some additional geographic constraint is added. In these cases, the model uses information from related groups to make more accurate estimates, known as partial pooling. In a famous example, @gelman_forecasting_2016 used MRP on a succession of *highly* unrepresentative polls of *Xbox* customers, and documented hoq *Xbox*-derived forecasts of 2012 US presidential were in-line with those of leading pollsters using large-scale and traditionally sampled surveys. A second advantage of the Bayesian approach is that full posterior distributions are generated for each prediction, and so we can report interpretable indicators of the uncertainty around estimates per spatial unit.
+The key advantage of MRP is in its use of Bayesian multilevel models. It is common in SAE that certain demographic combinations have little or no representation in the sample data, especially when some additional geographic constraint is added. In these cases, the model uses information from related groups to make more accurate estimates, known as partial pooling. In a famous example, @gelman_forecasting_2016 used MRP on a succession of *highly* unrepresentative polls of *Xbox* customers, and documented how *Xbox*-derived forecasts of 2012 US presidential were in-line with those of leading pollsters using large-scale and traditionally sampled surveys. A second, related, advantage of the Bayesian approach is that full posterior distributions are generated for each prediction, and predictions can be made for any combination of demographics and area-level variables. This means we can report interpretable indicators of the uncertainty around an estimate for any spatial unit and demographic combination.
+
 
 ### Aims and objectives 
 (300 words)
 
 > Outline how the proposal will support delivery of SDR UK’s objectives, including alignment to programme priorities.
-
-This project will generate a set of place-based data products that simulate public opinion and other outcomes using observational and survey data. We will leverage existing survey datasets, such as the National Travel Survey (NTS), Understanding Society, Food and You 2, as well as observational datasets housed at SDRUK data services -- e.g... 
 
 The project closely overlaps SDR UK priorities insofar as it:
 
@@ -33,9 +33,9 @@ The project closely overlaps SDR UK priorities insofar as it:
 
 *   **Builds research capability**: By producing reproducible code, open-source packages, and explanatory data stories, the project will lower the barrier to entry for MRP implementation, and will emphasise/exploit the intuition behind Bayesian methods.
 
-*   **Generates high-impact data products that enhance existing data assets:** The  datasets, estimating unknwown financial, health, and mobility outcomes at neighbourhood level, will be a novel resource for analysts and policy-makers.
+*   **Generates high-impact data products that enhance existing data assets:** The  datasets, estimating unknwown financial outcomes at neighbourhood level, will be a novel resource for analysts and policy-makers.
 
-*   **Promotes trustworthy and responsible research**:  The lead researchers are expert in uncertainty communication and analysis and will deploy noverl techniques for communicating data and model outputs in an accessible and transparent way to the target policy-makers and social data analysts who will use them.
+*   **Promotes trustworthy and responsible research**:  The lead researchers are expert in uncertainty communication and analysis and will deploy novel techniques for communicating MRP estimates in FINDS' Economic Wellbeing Explorer tool and in the wider Open Source resources and tools developed.
 
 
 ###	Expected outputs and deliverables
@@ -45,7 +45,7 @@ The project closely overlaps SDR UK priorities insofar as it:
 
 * Output 2: Reproducible and transferable **code products** for MRP implementation and validation. TODO: *As well as generalisable code, for each data product, we will document the models in full, decisions made around variable inclusion etc. etc.*.
 
-* Output 3: Implemented **data stories** that explain SAEs generated from the MRP, and to assist policy-makers in mobility, health, and sustainability to use the derived datasets for decision-making. TODO: *How to express this?*
+* Output 3: Implemented **data stories** that explain SAEs generated from the MRP, and to assist policy-makers in using the derived datasets for decision-making. TODO: *How to express this? Now references Economic Explorer Dashboard*
 
 ###	Expected impact 
 (200 words)
@@ -54,7 +54,7 @@ To discuss, but impact on:
 
 * **Research commmunity**: the data products, but also  *presenting* MRP, and *lowering the barrier of entry* to its implementation, for  geographers, public health researchers.
 
-* **Policy / practice**: Data resource for government and third sector organisations designing interventions in social, public health and mobility. etc. s policy-makers.
+* **Policy / practice**: Data resource for government and third sector organisations designing interventions in social and economic policy. (TODO: explore use by JRF)
 
 * **SDR UK**: Directly addresses challenges identified in SDR UK strategy -- a principled approach to addressing representativeness in smart behavioural data.
 

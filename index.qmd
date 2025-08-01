@@ -1,8 +1,8 @@
 ---
-title: "SMART-MRP"
+title: "MRP-SMART"
 ---
 
-This website contains details and readings on our proposal, ***SMART-MRP: Simulating place-based outcomes from behavioural datasets***. 
+This website contains details and readings on our proposal, ***MRP-SMART: Estimating place-based and cross-sectional financial outcomes from everyday transactions***.
 
 The proposal is motivated by some existing (and ongoing) work on inserting MRP into GIScience: Our 2025 GISRUK abstract, [Should we use Multilevel Regression and Post-stratification when
 simulating area-level population outcomes?](https://eprints.whiterose.ac.uk/id/eprint/226795/1/mrp_gisruk.pdf), and [associated talk](https://www.roger-beecham.com/slides/mrp/slides.html#/title-slide).
