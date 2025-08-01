@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="Roger Beecham and Stephen Clark">
+<meta name="author" content="Roger Beecham">
 
 <title>Experiments with MRP for small area estimation in GIScience – MRP-Smart</title>
 <style>
@@ -216,7 +216,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Author</div>
     <div class="quarto-title-meta-contents">
-             <p>Roger Beecham and Stephen Clark </p>
+             <p>Roger Beecham </p>
           </div>
   </div>
     
@@ -231,11 +231,11 @@ window.Quarto = {
 
 <section id="introduction" class="level2">
 <h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
-<p>This document describes a workflow for generating small area outcome estimates using MRP. Originally this work formed a GISRUK abstract (<a href="https://eprints.whiterose.ac.uk/id/eprint/226795/1/mrp_gisruk.pdf">paper</a> | <a href="https://www.roger-beecham.com/slides/mrp/slides.html#/title-slide">talk</a>). Currently, we are turning this into a full paper, but particularly exciting are the wider ambitions to generate a set of place-based indicators as part of Leeds <a href="https://www.sdruk.ukri.org/data/healthy-and-sustainable-places-data-service/">HASP</a> data service.</p>
+<p>This document describes a workflow for generating small area outcome estimates using MRP. Originally this work formed a GISRUK abstract (<a href="https://eprints.whiterose.ac.uk/id/eprint/226795/1/mrp_gisruk.pdf">paper</a> | <a href="https://www.roger-beecham.com/slides/mrp/slides.html#/title-slide">talk</a>). Currently, we are turning this into a full paper, but particularly exciting are the wider ambitions to generate a set of place-based indicators as part of Leeds <a href="https://www.sdruk.ukri.org/data/healthy-and-sustainable-places-data-service/">HASP</a> and <a href="https://smartdatafoundry.com/solutions/financial-data-service">FINDS</a> data service.</p>
 </section>
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
-<p>As well as the usual suspects, listed below are some useful packages for working over (Bayesian) models in a <em>tidy</em> way. <a href="https://paulbuerkner.com/brms/"><code>brms</code></a> is a wrapper to Stan; <a href="https://marginaleffects.com"><code>marginaleffects</code></a> is a very useful package for generating interpretable outputs from model objects (conditional effects in this case); and <a href="https://mjskay.github.io/tidybayes/"><code>tidybayes</code></a> for uncertainty representation extensions to <code>ggplot2</code>.</p>
+<p>Listed below are some useful packages for working over (Bayesian) models in a <em>tidy</em> way. <a href="https://paulbuerkner.com/brms/"><code>brms</code></a> is a wrapper to Stan; <a href="https://marginaleffects.com"><code>marginaleffects</code></a> is a very useful package for generating interpretable outputs from model objects (conditional effects in this case); and <a href="https://mjskay.github.io/tidybayes/"><code>tidybayes</code></a> for uncertainty representation extensions to <code>ggplot2</code>.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
@@ -265,8 +265,8 @@ window.Quarto = {
 <section id="data" class="level2">
 <h2 class="anchored" data-anchor-id="data">Data</h2>
 <ul>
-<li>Survey data (microdata)</li>
-<li>Census data: Pop by usual residence in households.</li>
+<li>Survey data (microdata): For this example, from Health Survey for England (HSE).</li>
+<li>Census data: Population by usual residence in households.</li>
 <li>Poststratification frame: Joint counts (and modelled joint counts) by MSOA.</li>
 <li>MSOA lookup files, spatial geometry files etc.</li>
 </ul>
@@ -545,16 +545,16 @@ Figure&nbsp;1
 </section>
 <section id="model" class="level2 page-columns page-full">
 <h2 class="anchored" data-anchor-id="model">Model</h2>
-<p>I am following primers on MRP:</p>
+<p>The following are short primers on MRP, implemented via <code>brms</code> / <code>stanarm</code>:</p>
 <ul>
 <li><a href="https://statmodeling.stat.columbia.edu/2022/05/31/multilevel-regression-and-poststratification-case-studies/">Juan Lopez-Martin + others</a>, via <code>brms</code> and <code>stanarm</code></li>
 <li><a href="https://bookdown.org/content/4857/models-with-memory.html">Solomon Kurz</a>, via <code>brms</code></li>
 <li><a href="https://rohanalexander.github.io/telling_stories-published/15-mrp.html">Nathan Alexander</a>, via <code>stanarm</code></li>
 </ul>
-<p>Also, I have been consulting Andrew Heiss’s detailed posts on working with logistic regression multilevel model outputs: <a href="https://www.andrewheiss.com/blog/2021/11/10/ame-bayes-re-guide/#posterior-predictions">here</a> and <a href="https://www.andrewheiss.com/blog/2023/08/12/conjoint-multilevel-multinomial-guide/#bayesian-comparisonscontrasts">here</a>.</p>
-<p>General practice in MRP is to include every variable as a random intercept / level and so fully-pool estimates of the outcome. That makes sense, but it means that it’s hard to interpret and justify model-based decisions on variables included in the model. While general practice is to include as many demographics and geography variables as possible, as long as they can still compute, if we are interested in ultimately building some SPM, then it is useful to require parsimony in the variables used. But interpreting these hierarchical Bayesian model outputs is hard. What I do here is:</p>
+<p>Also, Andrew Heiss’s detailed posts on working with logistic regression multilevel model outputs: <a href="https://www.andrewheiss.com/blog/2021/11/10/ame-bayes-re-guide/#posterior-predictions">here</a> and <a href="https://www.andrewheiss.com/blog/2023/08/12/conjoint-multilevel-multinomial-guide/#bayesian-comparisonscontrasts">here</a> are an excellent resource, especially as a key ambition of the <em>SMART-MRP</em> is to predict out over different combinations of demographic and geographic subset, and communicate uncertainty ranges to decision-makers.</p>
+<p>General practice in MRP is to include every variable as a random intercept / level and so fully-pool estimates of the outcome. That makes sense, but it means that it’s hard to interpret and justify model-based decisions on variables included in the model. If we are interested in interrogating into the processes, and making comparisons with say SPM-derived estimates, then it is useful to require parsimony in the variables used. But interpreting these hierarchical Bayesian model outputs is hard. What I do here is:</p>
 <ol type="1">
-<li><p>Generate posterior predictions for each level in the model and look at how narrow the CIs are for those values. This is using <a href="https://marginaleffects.com/bonus/brms.html">marginal effects</a>.</p></li>
+<li><p>Generate posterior predictions for each level in the model and look at how narrow the <a href="https://en.wikipedia.org/wiki/Credible_interval">Credible Intervals</a> are for those values. This is using <a href="https://marginaleffects.com/bonus/brms.html">marginal effects</a>.</p></li>
 <li><p>Generate posterior conditional effects for each level in them, again using <a href="https://marginaleffects.com/bonus/brms.html">marginal effects</a>.</p></li>
 <li><p>Extract the “condition_mean”, as per <a href="https://rohanalexander.github.io/telling_stories-published/15-mrp.html">Alexander 2023</a> – but I need to check what this means.</p></li>
 </ol>
@@ -650,7 +650,7 @@ Figure&nbsp;2
 </section>
 <section id="example-analysis-of-model-outputs" class="level3 page-columns page-full">
 <h3 class="anchored" data-anchor-id="example-analysis-of-model-outputs">Example analysis of model outputs</h3>
-<p>The benefit of modern packages for computational model-building (and Bayesian approach) is that we can take advantage of resampling procedures to derive more interpretable quantities for the variables included in our model. For example, we can ask about the predicted probability of a particular characteristic individual, or an individual living in a particular place, reporting a <code>good</code> health outcome. Or what the average difference in likelihood of reporting a good health outcome is for a hypothetical individual of a particular age versus a hypothetical individual of another age group (conditional on other characteristics being consistent with the sample average).</p>
+<p>The benefit of modern packages for computational model-building (and Bayesian) is that we can take advantage of resampling procedures to derive more interpretable quantities for the variables included in our model. For example, we can ask about the predicted probability of a particular characteristic individual, or an individual living in a particular place, reporting a <code>good</code> health outcome. Or what the average difference in likelihood of reporting a good health outcome is for a hypothetical individual of a particular age versus a hypothetical individual of another age group (conditional on other characteristics being consistent with the sample average).</p>
 <p>The <code>marginaleffects</code> package provides a set of functions to do this – to look at posterior predicted values and comparisons (contrasts) for different, user specified, individuals. There are a few key functions:</p>
 <ul>
 <li><p><code>marginaleffects::predictions()</code> extracts from a model the predicted probability in this case of a survey respondent reporting a <code>good</code> health outcome. To this function we supply a <code>newdata</code> argument with a grid of person characteristics that we want to predict over/for, and a <code>type</code> argument setting the scale with which to return predictions. By default <code>marginaleffects::predictions()</code> returns for each row (respondent) in the dataset, but we might want to return predicted values for:</p>
