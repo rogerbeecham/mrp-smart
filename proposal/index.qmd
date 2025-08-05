@@ -5,8 +5,28 @@ author: Roger Beecham
 format: html
 ---
 
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+library(knitr)
+library(here)
+```
+
 ###	Background / Summary 
 (500 words)
+
+```{r}
+#| label: fig-workflow
+#| out.width: 75%
+#| fig-cap: "MRP-SMART will use a principled modelling approach to derive place-based and cross-sectional estimates of outcomes derived from behavioural and transaction datasets."
+#| echo: false
+#| eval: true
+include_graphics(here("figs", "workflow.png"), error = FALSE)
+```
+
 
 #### Summary
 
