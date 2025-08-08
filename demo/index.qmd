@@ -18,7 +18,7 @@ This document describes a workflow for generating small area outcome estimates u
 
 ## Setup
 
-Listed below are some useful packages for working over (Bayesian) models in a *tidy* way. [`brms`](https://paulbuerkner.com/brms/) is a wrapper to Stan; [`marginaleffects`](https://marginaleffects.com) is a very useful package for generating interpretable outputs from model objects (conditional effects in this case);  and [`tidybayes`](https://mjskay.github.io/tidybayes/) for uncertainty representation extensions to `ggplot2`.
+Listed below are some useful packages for working over Bayesian models in a *tidy* way. [`brms`](https://paulbuerkner.com/brms/) is a wrapper to Stan; [`marginaleffects`](https://marginaleffects.com) is a very useful package for generating interpretable outputs from model objects (conditional effects in this case);  and [`tidybayes`](https://mjskay.github.io/tidybayes/) for uncertainty representation extensions to `ggplot2`.
 
 
 
@@ -319,7 +319,7 @@ ggsave(here("..", "figs", "bias_hse2.png"), bias_hse, width=8, height=4.5, dpi=3
 ```{r}
 #| label: fig-bias-hse
 #| out.width: 100%
-#| fig-cap: ""
+#| fig-cap: "Observed differences between the unweighted 2021 HSE sample and 2021 Census."
 #| echo: false
 #| eval: true
 include_graphics(here("figs", "bias_hse2.png"), error = FALSE)
@@ -333,23 +333,20 @@ The following are short primers on MRP, implemented via `brms` / `stanarm`:
 * [Solomon Kurz](https://bookdown.org/content/4857/models-with-memory.html), via `brms`
 * [Nathan Alexander](https://rohanalexander.github.io/telling_stories-published/15-mrp.html), via `stanarm`
 
-Also, Andrew Heiss's detailed posts on working with logistic regression multilevel model outputs: [here](https://www.andrewheiss.com/blog/2021/11/10/ame-bayes-re-guide/#posterior-predictions) and [here](https://www.andrewheiss.com/blog/2023/08/12/conjoint-multilevel-multinomial-guide/#bayesian-comparisonscontrasts) are an excellent resource, especially as a key ambition of the *SMART-MRP* is to predict out over different combinations of demographic and geographic subset, and communicate uncertainty ranges to decision-makers.
+Also, Andrew Heiss's detailed posts on working with logistic regression multilevel model outputs -- [here](https://www.andrewheiss.com/blog/2021/11/10/ame-bayes-re-guide/#posterior-predictions) and [here](https://www.andrewheiss.com/blog/2023/08/12/conjoint-multilevel-multinomial-guide/#bayesian-comparisonscontrasts) -- are an excellent resource, especially as a key ambition of the *SMART-MRP* is to predict out over different combinations of demographic and geographic subsets, and communicate uncertainty ranges to decision-makers.
 
-General practice in MRP is to include every variable as a random intercept / level and so fully-pool estimates of the outcome. That makes sense, but it means that it's hard to interpret and justify model-based decisions on variables included in the model. If we are interested in interrogating into the processes, and making comparisons with say SPM-derived estimates, then it is useful to require parsimony in the variables used. But interpreting these hierarchical Bayesian  model outputs is hard. What I do here is:
+General practice in MRP is to include every variable as a random intercept / level and so pool estimates of the outcome. That makes sense, but it means that it's hard to interpret and justify model-based decisions on variables included in the model. If we are interested in interrogating into the processes, and making comparisons with say SPM-derived estimates, then it is useful to require parsimony in the variables used. Interpreting model outputs is therefore useful. What I do here is:
 
 1. Generate posterior predictions for each level in the model and look at how narrow the [Credible Intervals](https://en.wikipedia.org/wiki/Credible_interval) are for those values. This is using [marginal effects](https://marginaleffects.com/bonus/brms.html). 
 
 
-2. Generate posterior conditional effects for each level in them, again using [marginal effects](https://marginaleffects.com/bonus/brms.html). 
-
-2. Extract the "condition_mean", as per [Alexander 2023](https://rohanalexander.github.io/telling_stories-published/15-mrp.html) -- but I need to check what this means.
-
+2. Generate posterior conditional effects for each level, again using [marginal effects](https://marginaleffects.com/bonus/brms.html). 
 
 ### Priors
 
 We parameterise our models using:
 
-1.  An informed prior on the intercept. We have some experience with stated response surveys and health outcomes. Our expectation is that most will identify as in good health -- c. 75%. So for the multilevel logistic regression, our intercept is a Gaussian set on log-odds scale,  we use $Normal(mean=0.5, sd=1)$.
+1.  An informed prior on the intercept. We have some experience with stated response surveys and health outcomes. Our expectation is that most will identify as having overall *good* health -- c. 75%. So for the multilevel logistic regression, our intercept is a Gaussian set on log-odds scale,  we use $Normal(mean=0.5, sd=1)$.
 
 2. The multilevel priors are set to $exponential(1)$ as a default. 
 
@@ -379,7 +376,7 @@ ggsave(here("..", "figs", "prior.png"), p, width=4.5, height=3, dpi=300)
 ```{r}
 #| label: fig-prior
 #| out.width: 70%
-#| fig-cap: ""
+#| fig-cap: "A prior expectation for the likelihood HSE respondents stating a *good* health outcome."
 #| echo: false
 #| eval: true
 include_graphics(here("figs", "prior.png"), error = FALSE)
@@ -437,20 +434,20 @@ model1 <- readRDS(here("..", "models", "fit_hse_1.rds"))
 
 ### Example analysis of model outputs
 
-The benefit of modern packages for computational model-building (and Bayesian) is that we can take advantage of resampling procedures to derive more interpretable quantities for the variables included in our model. For example, we can ask about the predicted probability of a particular characteristic individual, or an individual living in a particular place, reporting a `good` health outcome. Or what the average difference in likelihood of reporting a good health outcome is for a hypothetical individual of a particular age versus a hypothetical  individual of another age group (conditional on other characteristics being consistent with the sample average). 
+The benefit of modern packages for computational model-building (and Bayesian) is that we can take advantage of resampling procedures to derive interpretable quantities for the variables included in our model. For example, we can ask about the predicted probability of a particular characteristic individual, or an individual living in a particular place, reporting a *good* health outcome. Or what the average difference in likelihood of reporting a *good* health outcome is for a hypothetical individual of a particular age versus a hypothetical  individual of another age group (conditional on other characteristics being consistent with the sample average). 
 
 The `marginaleffects` package provides a set of functions to do this -- to look at posterior predicted values and comparisons (contrasts) for different, user specified, individuals. There are a few key functions: 
 
 * `marginaleffects::predictions()` extracts from a model the predicted probability in this case of a survey respondent reporting a `good` health outcome. To this function we supply a `newdata` argument with a grid of person characteristics that we want to predict over/for, and a `type` argument setting the scale with which to return predictions.  By default `marginaleffects::predictions()` returns for each row (respondent) in the dataset, but we might want to return predicted values for:
-  + A specific demographic combination (as in postratification frame)
+  + A specific demographic combination (as in a postratification frame)
   + A hypothetical individual with each predictor held at the sample average (mean / mode).
 
-* `marginaleffects::avg_predictions()` takes the average of all predicted values of the dataset -- so imagine predicting out for each observation (respondent) and averaging out their predicted probabilities. But this becomes more useful when we pass a `by` argument to predict for actually observed values of our dataset -- e.g. for particular ages or other characteristics, what is the average probability of the outcome, given our model?
+* `marginaleffects::avg_predictions()` takes the average of all predicted values of the dataset -- so imagine predicting out for each observation (respondent) and averaging their predicted probabilities. But this becomes more useful when we pass a `by` argument to predict for actually observed values of our dataset -- e.g. for particular ages or other characteristics, what is the average probability of the outcome, given our model?
 
 * `marginaleffects::comparisons()` compares two sets of predictions made with different predictor values. The quantity of interest is the difference in predictions when, say, `age` takes on different values. This is done via parameterising the `variables` argument. Risk differences are *conditional* quantities, which vary with the values of all predictors in the model. By default we obtain the comparison (risk difference) for each unit of observation.  
 
 
-So below, I inspect the predicted probability of good health by key demographics and comparing `model1` (using only sex and age) with `model7`, which uses many more covariates.
+Below I inspect the predicted probability of good health by key demographics and comparing `model1` (using only sex and age) with `model7`, which uses many more covariates.
 
 ```{r}
 #| code-fold: true
@@ -565,13 +562,13 @@ ggsave(here("..", "figs", "predictions.png"), p, width=6.5, height=5, dpi=300)
 ```{r}
 #| label: fig-predictions
 #| out.width: 100%
-#| fig-cap: ""
+#| fig-cap: "Predicted probabilities, given our model, of a good health outcome for the typical respondent in each demographic and areal-level grouping."
 #| echo: false
 #| eval: true
 include_graphics(here("figs", "predictions.png"), error = FALSE)
 ```
 
-Here I use `avg_comparisons()` to analyse the average marginal component effect of moving between age ranges, education levels etc. holding other features constant. So with marginal effects, we ask what happens to an outcome when the explanatory variable moves, in this case, between levels. This corresponds with how one would normally interpret coefficients from a regression model.
+Here I use `avg_comparisons()` to analyse the average marginal component effect of moving between age ranges, education levels etc. holding other features constant. So with marginal effects, we ask what happens to an outcome when the explanatory variable moves, in this case, between levels. 
 
 This function works as follows, as per [`marginaleffects` documentation](https://marginaleffects.com/chapters/comparisons.html):
 
@@ -732,7 +729,7 @@ ggsave(here("..", "figs","comparisons.png"), p, width=6.5, height=5, dpi=300)
 ```{r}
 #| label: fig-comparisons
 #| out.width: 100%
-#| fig-cap: ""
+#| fig-cap: The estimated *effect*, or risk difference, on the good health outcome for the average respondent on each level of demographic and area-level category as compared to the reference level category (on 0). So for the model that uses information on education and area-level demographics, *age* has an even more regular effect on the likelihood of reporting *good* health.
 #| echo: false
 #| eval: true
 include_graphics(here("figs", "comparisons.png"), error = FALSE)
@@ -741,7 +738,7 @@ include_graphics(here("figs", "comparisons.png"), error = FALSE)
 
 ## Example poststratification
 
-At poststratification, we predict over the outcome for each of the 'strata' defined by the poststratification frame (`ps`). I've wrapped this into a function so that we poststratify per model. Here I also calculate absolute errors for each postratification model prediction.
+At poststratification, we predict over the outcome for each of the 'strata' defined by the poststratification frame (`ps`). I've wrapped this into a function so that we poststratify per model. Here I also calculate absolute errors, against the Census groundtruth, for each postratificatified model prediction.
 
 
 ```{r}
@@ -781,7 +778,7 @@ ps_health <-  function(model, model_spec, ps) {
 ```
 
 
-I then post-stratify over each model, within a `purrr::map()`. 
+I then poststratify over each model, within a `purrr::map()`. 
 
 ```{r}
 #| echo: true
@@ -854,7 +851,7 @@ filter(spec!="Census", spec!="RM42_46_120_SxA_qimd19") |>
 Another external table is that describing Information Entropy scores, per area, on the outcome estimates derived from the spatial microsimulation. This describes how much our models need to draw from a diminishing set of survey respondents, as we constrain on more variables.
 
 ```{r}
-#| echo: false
+#| echo: true
 #| eval: false
 shannon <- read_csv(here("FMF", "Geodemographic", "Shannon.csv")) |> 
   rename(zone_id = Var1, spec="SMS") |> 
@@ -1083,7 +1080,7 @@ return(p)
 }
 ```
 
-I then iterate over each model and generate plot summaries: maps of residuals, of prediction intervals (MRP) and Information Emntropy (SPM).
+I then iterate over each model and generate plot summaries: maps of residuals, of prediction intervals (MRP) and Information Entropy (SPM).
 
 ```{r}
 #| code-fold: true
