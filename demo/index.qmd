@@ -44,8 +44,8 @@ library(ggpubr)
 
 # library(modelsummary)
 # library(gt)
-source(here("R", "theme_clean.R"))
-source(here("R", "plot_helpers.R"))
+source(here("code", "theme_clean.R"))
+source(here("code", "plot_helpers.R"))
 ```
 
 
@@ -64,8 +64,8 @@ source(here("R", "plot_helpers.R"))
 #| eval: false
 # HEStoFMF.R > Converts to format to be used in FMF
 # HES data (microdata)
-hes_raw <- read_csv(here("Data", "HES", "spss", "spss28", "HES_for_R.csv"))
-hes_for_model <- read_csv(here("FMF", "HES", "HESforFMF.csv")) |> 
+hes_raw <- read_csv(here("data", "HES_for_R.csv"))
+hes_for_model <- read_csv(here("data", "HESforFMF.csv")) |> 
   select(id=Seriala, health=genhelf1, SexbyAge, sha=SHA2, region=GOR2, is_urban=urban14b_2, imd=qimd19_2) |>
   separate_wider_delim(col=SexbyAge, names=c("sex", "age"), delim=".") |> 
   mutate(
@@ -306,6 +306,7 @@ bias_hse <- temp_freqs |>
     y="% in <span style='color: #08519c;'>**Census**</span> vs <span style='color: #636363;'>**HSE**</span>", 
     x="", 
     title="Difference between 2021 <span style='color: #636363;'>**HSE**</span> sample and <span style='color: #08519c;'>**Census**</span> population") +
+   scale_y_continuous(labels = scales::label_percent()) +
   theme(
     strip.text.x = element_text(size=35),
     axis.text.y=element_text(size=30),
@@ -313,7 +314,7 @@ bias_hse <- temp_freqs |>
     axis.title.y = element_markdown(size=40),
     plot.title = element_markdown(size=60)
     )
-ggsave(here("..", "figs", "bias_hse2.png"), bias_hse, width=8, height=4.5, dpi=300)
+ggsave(here("figs", "bias_hse2.png"), bias_hse, width=8, height=4.5, dpi=300)
 ```
 
 ```{r}
@@ -410,10 +411,10 @@ model7 <-
       backend = "cmdstanr", 
       control = list(adapt_delta = .95))
 print(Sys.time()-start)
-# saveRDS(model, file = here("MRP", "fit_hse_7.rds"))
-# saveRDS(model, file = here("MRP", "fit_hse_7_nointeract.rds"))
-# model <- readRDS(here("..", "models", "fit_hse_7.rds"))
-model7 <- readRDS(here("..", "models" "fit_hse_7_nointeract.rds"))
+# saveRDS(model, file = here("models", "fit_hse_7.rds"))
+# saveRDS(model, file = here("models", "fit_hse_7_nointeract.rds"))
+# model <- readRDS(here("models", "fit_hse_7.rds"))
+model7 <- readRDS(here("models", "fit_hse_7_nointeract.rds"))
 
 model1 <-
   brm(data = hes_for_model,
@@ -428,8 +429,8 @@ model1 <-
       backend = "cmdstanr", 
       control = list(adapt_delta = .95))
 
-# saveRDS(model1, file = here("..", "models", "fit_hse_1.rds"))
-model1 <- readRDS(here("..", "models", "fit_hse_1.rds"))
+# saveRDS(model1, file = here("models", "fit_hse_1.rds"))
+model1 <- readRDS(here("models", "fit_hse_1.rds"))
 ```
 
 ### Example analysis of model outputs
@@ -597,21 +598,14 @@ model_effects <- map2_df(
 print(Sys.time()-start)
 
 
-effects_nested <- model_effects %>% 
+effects_nested <- model_effects |>  
   separate_wider_delim(
     contrast,
     delim = " - ", 
     names = c("variable_level", "reference_level")
-  ) %>% 
-  group_by(variable_level, reference_level, model) %>% 
-  nest()
-
-
-map2_df(
-  .x = list(model1, model7), 
-  .y = c("model1", "model7"),
-  ~ map_df(model_var_levels |> filter(model == .y) |> pull(variable) |> unique()
-
+  ) |> 
+  group_by(variable_level, reference_level, model) |>  
+  nest() 
 
 plot_data <- model_var_levels |> 
   left_join(
@@ -723,7 +717,7 @@ p <- plot_data |>
     axis.text = element_text(size=30),
     strip.text = element_text(size=30)
   )
-ggsave(here("..", "figs","comparisons.png"), p, width=6.5, height=5, dpi=300)
+ggsave(here("figs","comparisons.png"), p, width=6.5, height=5, dpi=300)
 ```
 
 ```{r}
@@ -784,7 +778,7 @@ I then poststratify over each model, within a `purrr::map()`.
 #| echo: true
 #| eval: false
 mrp_results <- map2_df(
-  .x=list(model1, model), 
+  .x=list(model1, model7), 
   .y=c("model1", "model7"),
   ~ps_health(.x, .y, ps2 |> mutate(age2=age))
 )
@@ -797,7 +791,7 @@ Results from the `FMF` (spatial microsimulation model) are stored in a separate 
 #| echo: false
 #| eval: false
 # Fetch FMF results
-fmf_results <- read_csv(here("FMF", "Geodemographic", "GH_ALL.csv")) |> 
+fmf_results <- read_csv(here("data", "GH_ALL.csv")) |> 
   mutate(zone_id=MSOA21CD, exp_good=Good+ `Very Good`) |>  select(zone_id, exp_good, FMF) |> 
   left_join(health |> mutate(obs_good = good+verygood) |> select(zone_id, obs_good)) |> 
   left_join(zone_totals) |> 
@@ -853,7 +847,7 @@ Another external table is that describing Information Entropy scores, per area, 
 ```{r}
 #| echo: true
 #| eval: false
-shannon <- read_csv(here("FMF", "Geodemographic", "Shannon.csv")) |> 
+shannon <- read_csv(here("data", "Shannon.csv")) |> 
   rename(zone_id = Var1, spec="SMS") |> 
   mutate(
     spec=case_when(
@@ -921,7 +915,7 @@ map_resids <- function(dat, censor) {
   geom_sf(data=. %>% summarise(), fill="transparent", linewidth=.45, colour="#525252") +
   geom_sf(aes(fill=resid), linewidth=0) +
   geom_sf(data=. %>% group_by(region) %>% summarise(), fill="transparent", linewidth=.25, colour="#ffffff") +
-  coord_sf(xlim = c(unname(bbox$xmin)+.2*map_width, unname(bbox$xmax)+.5*map_width)) +
+  coord_sf(xlim = c(unname(bbox$xmin)+.1*map_width, unname(bbox$xmax)+.5*map_width)) +
   scale_fill_distiller(palette="RdBu", limits=c(-censor,censor), direction=1)   +
   # Annotate model performance.
     geom_text(data = . %>% summarise(),
@@ -1130,7 +1124,7 @@ composite_shannon <- (p_shannon[[1]] / p_shannon[[2]])
 composite_intervals <- (p_intervals[[1]] / p_intervals[[2]])
 
 # View composition of each of these summaries.
-comp_plot <- (composite_labs | composite_resids_mrp | composite_intervals |  composite_resids_spm | composite_shannon) + plot_layout(widths=c(.25,1,.9, 1,.9))
+comp_plot <- (composite_labs | composite_resids_mrp | composite_intervals | plot_spacer() | composite_resids_spm | composite_shannon) + plot_layout(widths=c(.22,1,1,.005, 1,1))
 comp_plot_gg <- patchworkGrob(comp_plot)
 
 # Annotate composed plots.
@@ -1177,9 +1171,9 @@ p <- ggplot() +
              fill="transparent",
              label = "<span style='color: #9ecae1;'>**high diversity**</span> | <span style='color: #084594;'>**low diversity**</span><br>~ more respondents") +
       
-  annotate("richtext", x=.55,y=0, hjust="left", vjust="top", label.colour = NA, size=6.5, colour="#525252", fill="transparent",
+  annotate("richtext", x=.5,y=0, hjust="left", vjust="top", label.colour = NA, size=6.5, colour="#525252", fill="transparent",
            label="Mean abs error:" ) +
-    annotate("richtext", x=.55,y=-.03, hjust="left", vjust="top", label.colour = NA, size=6.5, colour="#525252", fill="transparent",
+    annotate("richtext", x=.5,y=-.03, hjust="left", vjust="top", label.colour = NA, size=6.5, colour="#525252", fill="transparent",
            label="<span># good & bad | % good</span>" ) +
   
   annotate("text", x=.67,y=.065, hjust="left",vjust="top",  size=6.5, colour="#525252", 
@@ -1188,13 +1182,13 @@ p <- ggplot() +
            label="are censored") +
   annotate("curve", x=.72, xend=.76, y=.075, yend=.12, linewidth=.2, colour="#525252", arrow = arrow(length = unit(0.006, "npc")), curvature = -0.4)  
 
-ggsave(here("..", "figs", "model_summary.png"), p, width=8, height=4, dpi=300)
+ggsave(here("figs", "model_summary2.png"), p, width=9, height=4.3, dpi=300)
 ```
 
 ```{r}
 #| label: fig-models
 #| out.width: 100%
-#| fig-cap: ""
+#| fig-cap: "Summary of model performance comapring MRP, with spatial microsimulation (default SAE technique in GIScience) for simulating good health at MSOA level."
 #| echo: false
 #| eval: true
 include_graphics(here("figs", "model_summary.png"), error = FALSE)
