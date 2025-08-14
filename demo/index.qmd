@@ -71,6 +71,7 @@ hes_for_model <- read_csv(here("data", "HESforFMF.csv")) |>
   mutate(
     # Create binary outcome variable.
     is_good=health %in% c("good","verygood"),
+    is_vbad=health == "verybad",
     # Cast 5-point as factor, for ordinal regression.
     health=factor(health, levels=c("verybad", "bad", "fair", "good", "verygood"), ordered=TRUE),
     is_urban=is_urban=="U",
@@ -244,7 +245,7 @@ temp_freqs <- bind_rows (
   group_by(var_name, val) |> 
   summarise(count=sum(cell_counts)) |> mutate(type="Census"),
   
-  hes_for_model |> select(-c(is_good,sha, age)) |> 
+  hes_for_model |> select(-c(is_good, is_vbad, sha, age)) |> 
   rename(age=age2) |> 
   mutate(is_urban=as.character(is_urban)) |> 
   pivot_longer(-c(id, health), names_to = "var_name", values_to = "val") |> 
@@ -347,7 +348,7 @@ General practice in MRP is to include every variable as a random intercept / lev
 
 We parameterise our models using:
 
-1.  An informed prior on the intercept. We have some experience with stated response surveys and health outcomes. Our expectation is that most will identify as having overall *good* health -- c. 75%. So for the multilevel logistic regression, our intercept is a Gaussian set on log-odds scale,  we use $Normal(mean=0.5, sd=1)$.
+1.  An informed prior on the intercept. We have some experience with stated response surveys and health outcomes. Our expectation is that most will identify as having overall *good* health -- c. 75%. So for the multilevel logistic regression, our intercept is a Gaussian set on log-odds scale,  we use $Normal(mean=0.5, sd=1)$. We set a reasonably conservative estimate for the variance around the prior ($sd=1$), as there is some systematic absolute errors between the HSE and the "true" population paramter, per the Census (see below). 
 
 2. The multilevel priors are set to $exponential(1)$ as a default. 
 
@@ -374,6 +375,29 @@ p <- tibble(n = rnorm(1e6, mean = 0.5, sd = 1)) |>
 ggsave(here("..", "figs", "prior.png"), p, width=4.5, height=3, dpi=300)
 ```
 
+
+```{r}
+#| echo: false
+#| eval: false
+# If we expect 75% to be reporting good outcomes, then the incidence of very bad outcomes is likely to be very small, less than 5%. We anchor intercept prior for bad health on a 2.5% probability of outcome $p/(1-p)$, so $log(0.025/0.975) ~ -3.66$, which in 
+p <- tibble(n = rnorm(1e6, mean = -3.66, sd = 1)) |>  
+  mutate(p = brms::inv_logit_scaled(n)) |> 
+  ggplot(aes(x = p)) +
+  geom_histogram(fill="#636363", binwidth = .02, boundary = 0, alpha=.5) +
+  scale_y_continuous(breaks = NULL) +
+  scale_x_continuous(labels = scales::label_percent()) +
+  labs(
+    title="<span>theoretical **prior** on intercept</span>", 
+    x="baseline % **very bad** health", y="") +
+  theme(
+    axis.title=element_markdown(size=35), 
+    plot.title = element_markdown(size=60),
+    axis.text.x=element_text(size=30)
+    )
+#ggsave(here(figs", "prior.png"), p, width=4.5, height=3, dpi=300)
+```
+
+
 ```{r}
 #| label: fig-prior
 #| out.width: 70%
@@ -383,8 +407,74 @@ ggsave(here("..", "figs", "prior.png"), p, width=4.5, height=3, dpi=300)
 include_graphics(here("figs", "prior.png"), error = FALSE)
 ```
 
+> TODO: Chart here showing total abs error between HSE and Census on health outcome.
+
+```{r}
+#| echo: false
+#| eval: false
+hse_stats <- hes_for_model |>
+  group_by(health) |> 
+  summarise(count=n()) |> ungroup() |> 
+  mutate(
+    prop=count/sum(count),
+    ci=1.96*sqrt((prop * (1-prop)) / 5000)) |>  
+  left_join(health |> summarise(across(-zone_id, ~sum(.))) |>
+               pivot_longer(everything(), names_to="health",  values_to="count") |>
+               mutate(census=count/sum(count)) |> 
+               select(health, census)) |> 
+  mutate(health=factor(health, levels=c("verygood", "good", "fair","bad", "verybad")))
+
+p <- hse_stats |>
+  mutate(health=fct_rev(health)) |> 
+  ggplot(aes(y=health, x=prop)) +
+  stat_gradientinterval(
+    aes(dist = dist_normal(mu=prop, sigma=ci/2)),
+    scale = .5, fill_type = "gradient",
+    show_point = FALSE, show_interval = FALSE, fill="#636363" 
+    ) +
+    geom_spoke(aes(x=census), angle=get_radians(90), radius=.3, position="center_spoke",alpha=1, linewidth=.5, colour="#08519c") +
+  labs(x="% in <span style='color: #08519c;'>**Census**</span> vs <span style='color: #636363;'>**HSE**</span> estimate", y="") + 
+  scale_x_continuous(labels = scales::label_percent(), limits = c(0,.5), breaks=c(.1,.3,.5)) +
+  theme(
+    axis.title=element_markdown(size=40), 
+    axis.text.x=element_text(size=30),  axis.text.y=element_text(size=30))
+ggsave(here("figs", "hse_abs_error.png"), p, width=4.5, height=2.2, dpi=300)
+```
+
+
 
 ### Example model specification
+
+```{r}
+#| echo: false
+#| eval: false
+set.seed(13)
+# Time difference of 1.53914 mins
+start <- Sys.time()
+model <-
+  brm(data = hes_for_model,
+      family = bernoulli(),
+      is_vbad ~ sex + (1 | age2) + (1 | educ) + (1 | imd) + (1 | region) + (1 | is_urban), #+ (1 | educ:age2),
+      #is_good ~ sex + (1 | age),
+      prior = c(set_prior("normal(-3.66, 1)", class = "Intercept"),
+                set_prior("normal(0, 1)", class = "b"),
+                set_prior("exponential(1)", class = "sd", group="age2"),
+                set_prior("exponential(1)", class = "sd", group="educ"),
+                set_prior("exponential(1)", class = "sd", group="imd"),
+                set_prior("exponential(1)", class = "sd", group="region"),
+                set_prior("exponential(1)", class = "sd", group="is_urban")#,
+                # set_prior("exponential(1)", class = "sd", group="educ:age2")
+                ),
+      iter = 2000, warmup = 1000, cores = 4, chains=4,
+      seed = 13,
+      backend = "cmdstanr", 
+      control = list(adapt_delta = .95))
+print(Sys.time()-start)
+# saveRDS(model, file = here("models", "fit_vbad.rds"))
+model_vbad <- readRDS(here("models", "fit_vbad.rds"))
+```
+
+
 
 ```{r}
 #| echo: true
@@ -415,22 +505,6 @@ print(Sys.time()-start)
 # saveRDS(model, file = here("models", "fit_hse_7_nointeract.rds"))
 # model <- readRDS(here("models", "fit_hse_7.rds"))
 model7 <- readRDS(here("models", "fit_hse_7_nointeract.rds"))
-
-model1 <-
-  brm(data = hes_for_model,
-      family = bernoulli(),
-      is_good ~ sex + (1 | age2),
-      prior = c(set_prior("normal(0.5, 1)", class = "Intercept"),
-                set_prior("normal(0, 1)", class = "b"),
-                set_prior("exponential(1)", class = "sd", group="age2")
-                ),
-      iter = 2000, warmup = 1000, cores = 4, chains=4,
-      seed = 13,
-      backend = "cmdstanr", 
-      control = list(adapt_delta = .95))
-
-# saveRDS(model1, file = here("models", "fit_hse_1.rds"))
-model1 <- readRDS(here("models", "fit_hse_1.rds"))
 ```
 
 ### Example analysis of model outputs
@@ -472,13 +546,14 @@ var_levels <- tibble(variable = c("age2", "educ", "region", "imd", "is_urban")) 
 
 model_var_levels <- bind_rows(
   var_levels |> filter(variable == "age2") |> add_column(model="model1"), 
-  var_levels |> add_column(model="model7")
+  var_levels |> add_column(model="model7"),
+  var_levels |> add_column(model="modelVB")
 )
 
 
 model_preds <- map2_df(
-  .x = list(model1, model7), 
-  .y = c("model1", "model7"),
+  .x = list(model1, model7, model_vbad), 
+  .y = c("model1", "model7", "modelVB"),
   ~ map_df(model_var_levels |> filter(model == .y) |> pull(variable) |> unique(),
            function(var) {
              avg_predictions(.x, by = var, allow_new_levels = TRUE) |> 
@@ -556,8 +631,45 @@ p <- plot_data |>
     axis.text = element_text(size=30),
     strip.text = element_text(size=30)
   )
+
 ggsave(here("..", "figs", "predictions.png"), p, width=6.5, height=5, dpi=300)
 ```
+
+
+```{r}
+#| echo: false
+#| eval: false
+# Very bad outcome.
+plot_data |> filter(model=="modelVB") |> 
+  filter(!(educ == "na/other" & condition == "educ")) |> 
+  ggplot(aes(x = draw, y = cat_val)) +
+  stat_gradientinterval(
+    slab_size = 3,  
+    #normalize = "xy", 
+    show_interval = FALSE,
+    show_point = FALSE,   
+    colour="#525252",
+   fill="#525252"
+  )  +
+  
+  geom_spoke(data = . %>% group_by(model, condition, cat_val) %>% summarise(draw=mean(draw)), angle=get_radians(90), radius=.5, position="center_spoke",alpha=1, linewidth=.5, colour="#525252") + 
+  
+  scale_x_continuous(labels = scales::label_percent(), breaks=c(0,.04,.08)) +
+  labs(
+    x = "Predicted probability of **very bad** health", y = NULL,
+    title = "Predicting over demographics by **model**") +
+  theme(panel.grid.minor = element_blank(), panel.grid.major.y = element_blank()) +
+  geom_vline(xintercept=.777, colour="#525252", linewidth=.2) +
+  coord_cartesian(xlim = c(0, .1)) + 
+  facet_grid(condition~model, scales="free_y", space="free_y") +
+  theme(
+    axis.title = element_markdown(size=35),
+    plot.title = element_markdown(size=60),
+    axis.text = element_text(size=30),
+    strip.text = element_text(size=30)
+  )
+```
+
 
 
 ```{r}
@@ -586,8 +698,8 @@ This function works as follows, as per [`marginaleffects` documentation](https:/
 # Time difference of 2.9 mins
 start <- Sys.time() 
 model_effects <- map2_df(
-  .x = list(model1, model7), 
-  .y = c("model1", "model7"),
+  .x = list(model1, model7, model_vbad), 
+  .y = c("model1", "model7", "modelVB"),
   ~ map_df(model_var_levels |> filter(model == .y) |> pull(variable) |> unique(),
            function(var) {
              avg_comparisons(.x, variable = var, allow_new_levels = TRUE) |> 
@@ -629,7 +741,7 @@ plot_data_m1 <- plot_data |> filter(model =="model1") |>
   ) |> 
   select(model, variable, draw, cat_val)
   
-plot_data_m7 <- plot_data |> filter(model =="model7") |> 
+plot_data_ms <- plot_data |> filter(model != "model1") |> 
   pivot_wider(names_from=condition, values_from=levels) |> 
   mutate(age2 = case_when(
       str_detect(age2, "age\\d+p$") ~ str_replace(age2, "age(\\d+)p", "\\1+"),
@@ -680,9 +792,9 @@ plot_data_m7 <- plot_data |> filter(model =="model7") |>
   ) |> 
   select(model, variable, draw, cat_val)
 
-plot_data <- bind_rows(plot_data_m1, plot_data_m7)  
+plot_data <- bind_rows(plot_data_m1, plot_data_ms)  
 
-p <- plot_data |> 
+p <- plot_data |> filter(model!="modelVB") |> 
  ggplot(aes(x = draw, y = cat_val)) +
   stat_gradientinterval(
     slab_size = 3,  
@@ -719,6 +831,48 @@ p <- plot_data |>
   )
 ggsave(here("figs","comparisons.png"), p, width=6.5, height=5, dpi=300)
 ```
+
+
+
+```{r}
+#| echo: false
+#| eval: false
+p <- plot_data |> filter(model=="modelVB") |> 
+ ggplot(aes(x = draw, y = cat_val)) +
+  stat_gradientinterval(
+    slab_size = 3,  
+    #normalize = "xy", 
+    show_interval = FALSE,
+    show_point = FALSE,   
+    colour="#525252",
+   fill="#525252"
+  )  +
+  
+  geom_spoke(data = . %>% group_by(model, variable, cat_val) %>% summarise(draw=mean(draw)), angle=get_radians(90), radius=.5, position="center_spoke",alpha=1, linewidth=.5, colour="#525252") + 
+  
+  theme(panel.grid.minor = element_blank(), panel.grid.major.y = element_blank()) +
+  geom_vline(xintercept=0, colour="#525252", linewidth=.2) +
+  
+  scale_x_continuous(labels=scales::label_percent(), limits=c(-.04,.04)) +
+  facet_grid(variable~model, scales="free_y", space="free_y") +
+  
+  #facet_grid(variable~., scales="free_y", space="free_y") +
+   labs(
+    y = NULL,
+    title = "Posterior 'marginal effects'",
+    #subtitle = "-- moving between levels of explanatory variables",
+    x="% change in **very bad** health from control level", y=""
+  ) +
+  theme(
+    axis.title = element_markdown(size=35),
+    plot.title = element_markdown(size=60),
+    plot.subtitle = element_markdown(size=35),
+    axis.text = element_text(size=30),
+    strip.text = element_text(size=30)
+  )
+```
+
+
 
 ```{r}
 #| label: fig-comparisons
