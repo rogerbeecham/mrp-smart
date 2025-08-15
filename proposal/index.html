@@ -299,20 +299,6 @@ Figure&nbsp;2: <em>Economic Wellbeing Explorer</em> dashboard and candidate visu
 </div>
 </div>
 </div>
-<div class="cell page-columns page-full">
-<div class="cell-output-display page-columns page-full">
-<div id="fig-stats19" class="quarto-float quarto-figure quarto-figure-center anchored page-columns page-full">
-<figure class="quarto-float quarto-float-fig figure page-columns page-full">
-<div aria-describedby="fig-stats19-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="../figs/geog_p1.png" class="img-fluid figure-img" style="width:95.0%">
-</div>
-<figcaption class="quarto-float-caption-margin quarto-float-caption quarto-float-fig margin-caption" id="fig-stats19-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;3: Figure from <span class="citation" data-cites="beecham_vis_2022">Beecham and Lovelace (<a href="#ref-beecham_vis_2022" role="doc-biblioref">2023</a>)</span> using narrative and visualization to demonstrate how transport planners can use Bayesian model estimates in their analysis.
-</figcaption>
-</figure>
-</div>
-</div>
-</div>
 </section>
 </section>
 <section id="expected-impact" class="level3">
@@ -355,7 +341,7 @@ Figure&nbsp;3: Figure from <span class="citation" data-cites="beecham_vis_2022">
 <p>For purposes of costings, funds will be <em>delivered</em> within the 2025/6 financial year. However, the substantive delivery of the project will run over a period of 12 months, starting in October 2025 and ending in September 2026. Work will be organised into four phases.</p>
 <section id="phase-1-code-repositories-and-postratification-frames-3-months-oct-dec-2025" class="level4">
 <h4 class="anchored" data-anchor-id="phase-1-code-repositories-and-postratification-frames-3-months-oct-dec-2025">Phase 1: <em>Code repositories and postratification frames</em> (3 months, Oct-Dec 2025)</h4>
-<p>RB will develop clean, fully-documented and generalisable code to be used by SDF data scientists to implement the MRP modelling and flexibly derive estimates for different area-level and demographic subsets – a very initial demo](https://www.roger-beecham.com/mrp-smart/demo/) is in preparation. RB will then construct postratification frames, containing marginal counts for demographic and area-level combinations <span class="citation" data-cites="hanretty_introduction_2019">(e.g. <a href="#ref-hanretty_introduction_2019" role="doc-biblioref">Hanretty 2019</a>)</span>, on which modelled probabilities can be re-weighted. Also in this phase, RB will assemble area-level context variables known to be discriminating of financial outcomes, for use in Phase 2.</p>
+<p>RB will develop clean, fully-documented and generalisable code to be used by SDF data scientists to implement the MRP modelling and flexibly derive estimates for different area-level and demographic subsets – a very initial <a href="https://www.roger-beecham.com/mrp-smart/demo/">demo</a> is in preparation. RB will then construct postratification frames, containing marginal counts for demographic and area-level combinations <span class="citation" data-cites="hanretty_introduction_2019">(e.g. <a href="#ref-hanretty_introduction_2019" role="doc-biblioref">Hanretty 2019</a>)</span>, on which modelled probabilities can be re-weighted. Also in this phase, RB will assemble area-level context variables known to be discriminating of financial outcomes, for use in Phase 2.</p>
 <p><!-- combinations of demographic and `at area-level.   --></p>
 <!-- A challenge with MRP implementation is constructing a poststratification frame on which modelled probabilities are re-weighted. Common practice is to estimate marginal counts for poststratification frames where certain demographic and area-level combinations are not contained in standard Census releases  [@hanretty_introduction_2019]. As an expert in geospatial analysis, and with prior experience in generating poststratification frames, RB will supply these datasets and share learning with SDR data scientists on these marginal counts are constructed.    -->
 </section>
@@ -410,7 +396,7 @@ Figure&nbsp;3: Figure from <span class="citation" data-cites="beecham_vis_2022">
 <p>(139 words)</p>
 <section id="risk-1.-that-code-libraries-for-mrp-modelling-are-incompatible-with-sdf-tre" class="level5">
 <h5 class="anchored" data-anchor-id="risk-1.-that-code-libraries-for-mrp-modelling-are-incompatible-with-sdf-tre">Risk 1. <em>That code libraries for MRP modelling are incompatible with SDF TRE</em></h5>
-<p><strong><em>Mitigation</em></strong>: SDF data scientists have consulted a <a href="https://www.roger-beecham.com/mrp-smart/demo/">demo</a> created as part of this proposal, for end-to-end MRP modelling. We can confirm that the libraries explained in the demo are compatible with the SDF TRE.</p>
+<p><strong><em>Mitigation</em></strong>: SDF data scientists have consulted a <a href="https://www.roger-beecham.com/mrp-smart/demo/">demo</a>, created as part of this proposal for end-to-end MRP modelling. We can confirm that the libraries explained in the demo are compatible with the SDF TRE.</p>
 </section>
 <section id="risk-2.-finds-microdata-is-not-suitable-for-mrp-modelling" class="level5">
 <h5 class="anchored" data-anchor-id="risk-2.-finds-microdata-is-not-suitable-for-mrp-modelling">Risk 2. <em>FINDS microdata is not suitable for MRP modelling</em></h5>
@@ -430,7 +416,7 @@ Figure&nbsp;3: Figure from <span class="citation" data-cites="beecham_vis_2022">
 </section>
 <section id="data-privacy-and-disclosure" class="level4">
 <h4 class="anchored" data-anchor-id="data-privacy-and-disclosure">Data privacy and disclosure</h4>
-<p>Models using FINDS microdata will be built end-to-end by SDF data scientists, supported by RB, within the SDF TRE. <em>Data products</em> – modelled estimates and uncertainty bands – will be published via SDF FINDS Data Catalogue, which means they by default have <em>Safeguarded</em> access. As the data products are derived from model probabilities that use information from the full dataset, they are entirely synthetic and cannot be disclosive of individuals.</p>
+<p>Models using FINDS microdata will be built end-to-end by SDF data scientists within the SDF TRE, supported by RB. <em>Data products</em> – modelled estimates and uncertainty bands – will be published via SDF FINDS Data Catalogue, which means they by default have <em>Safeguarded</em> access. As the data products are derived from model probabilities that use information from the full dataset, they are entirely synthetic and cannot be disclosive of individuals.</p>
 </section>
 <section id="responsible-communication-of-uncertainty" class="level4">
 <h4 class="anchored" data-anchor-id="responsible-communication-of-uncertainty">Responsible communication of uncertainty</h4>
@@ -443,7 +429,7 @@ Figure&nbsp;3: Figure from <span class="citation" data-cites="beecham_vis_2022">
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
 <div id="ref-beecham_visualization_2025" class="csl-entry" role="listitem">
-Beecham, Roger. 2025. <em>Visualization for Social Data Science</em>. CRC Press.
+Beecham, Roger. 2025. <em>Visualization for Social Data Science</em>. CRC Press. <a href="https://doi.org/10.1201/9781003292760">https://doi.org/10.1201/9781003292760</a>.
 </div>
 <div id="ref-beecham_design_2020" class="csl-entry" role="listitem">
 Beecham, Roger, Jason Dykes, Chris Rooney, and William Wong. 2021. <span>“<span class="nocase">Design Exposition Discussion Documents for Rich Design Discourse in Applied Visualization</span>.”</span> <em><span>IEEE Transactions on Visualization and Computer Graphics</span></em> 27 (8): 3451–62. <a href="https://doi.org/10.1109/TVCG.2020.2979433">https://doi.org/10.1109/TVCG.2020.2979433</a>.
