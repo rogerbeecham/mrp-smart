@@ -138,7 +138,7 @@ include_graphics(here("figs", "uncertainty_vis.png"), error = FALSE)
 #| out.width: 95%
 #| fig-cap: "Figure from @beecham_vis_2022 using narrative and visualization to demonstrate how transport planners can use Bayesian model estimates in their analysis."
 #| echo: false
-#| eval: true
+#| eval: false
 include_graphics(here("figs", "geog_p1.png"), error = FALSE)
 ```
 
@@ -178,7 +178,7 @@ MRP provides a methodological framework for addressing issues of bias and repres
 For purposes of costings, funds will be *delivered* within the 2025/6 financial year. However, the substantive delivery of the project will run over a period of 12 months, starting in October 2025 and ending in September 2026. Work will be organised into four phases.
 
 #### Phase 1: *Code repositories and postratification frames*  (3 months, Oct-Dec 2025)
-RB will develop clean, fully-documented and generalisable code to be used by SDF data scientists to implement the MRP modelling and flexibly derive estimates for different area-level and demographic subsets -- a very initial demo](https://www.roger-beecham.com/mrp-smart/demo/) is in preparation. RB will then construct postratification frames, containing marginal counts for demographic and area-level combinations [e.g. @hanretty_introduction_2019], on which modelled probabilities can be re-weighted. Also in this phase, RB will assemble area-level context variables known to be discriminating of financial outcomes, for use in Phase 2. 
+RB will develop clean, fully-documented and generalisable code to be used by SDF data scientists to implement the MRP modelling and flexibly derive estimates for different area-level and demographic subsets -- a very initial [demo](https://www.roger-beecham.com/mrp-smart/demo/) is in preparation. RB will then construct postratification frames, containing marginal counts for demographic and area-level combinations [e.g. @hanretty_introduction_2019], on which modelled probabilities can be re-weighted. Also in this phase, RB will assemble area-level context variables known to be discriminating of financial outcomes, for use in Phase 2. 
 
  <!-- combinations of demographic and `at area-level.   -->
 
@@ -232,7 +232,7 @@ Any additional area-level context variables collected from other controlled gove
 (139 words)
 
 ##### Risk 1. *That code libraries for MRP modelling are incompatible with SDF TRE* 
-***Mitigation***: SDF data scientists have consulted a [demo](https://www.roger-beecham.com/mrp-smart/demo/) created as part of this proposal, for end-to-end MRP modelling. We can confirm that the libraries explained in the demo are compatible with the SDF TRE.
+***Mitigation***: SDF data scientists have consulted a [demo](https://www.roger-beecham.com/mrp-smart/demo/), created as part of this proposal for end-to-end MRP modelling. We can confirm that the libraries explained in the demo are compatible with the SDF TRE.
 
 ##### Risk 2. *FINDS microdata is not suitable for MRP modelling* 
 ***Mitigation***: A key element of MRP is the re-weighting of modelled estimates using a poststratification frame. This typically is defined by cross-sectional demographic characteristics -- age, ethnicity, level of education. Although information on  FINDS microdata is not attribute-rich in its demographics, containing only age and sex, the neighbourhood (LSOA) in which customers live *is* consistently recorded. This is an important addition as it means that area-level context variables, which in MRP modelling have been demonstrated to be highly descriminating [@gelman_forecasting_2016], can be incorporated into the modelling process. We are therefore confident that MRP *can* be successfully applied to the FINDS microdata. That modelled estimates would be conditioned by individual LSOA further emphasises the appropriateness of the Bayesian modelling approach -- the pooled estimates -- outlined.
@@ -254,7 +254,7 @@ SDF will complete a Data Protection Impact Assessment (DPIA) and seek ethical ap
 
 
 #### Data privacy and disclosure 
-Models using FINDS microdata will be built end-to-end by SDF data scientists, supported by RB, within the SDF TRE. *Data products* -- modelled estimates and uncertainty bands -- will be published via SDF FINDS Data Catalogue, which means they by default have *Safeguarded* access. As the data products are derived from model probabilities that use information from the full dataset, they are entirely synthetic and cannot be disclosive of individuals. 
+Models using FINDS microdata will be built end-to-end by SDF data scientists within the SDF TRE, supported by RB. *Data products* -- modelled estimates and uncertainty bands -- will be published via SDF FINDS Data Catalogue, which means they by default have *Safeguarded* access. As the data products are derived from model probabilities that use information from the full dataset, they are entirely synthetic and cannot be disclosive of individuals. 
 
 #### Responsible communication of uncertainty
 Our data stories and visualization tools that explain the modelling process are strategies to ensure responsible use of data. They help users to fully understand the estimates and their limitations, and in this respect support ethical use of smart data.
