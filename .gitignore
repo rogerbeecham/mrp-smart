@@ -4,6 +4,7 @@
 
 
 *.pptx
+*.xlsx
 
 # Session Data files
 .RData
