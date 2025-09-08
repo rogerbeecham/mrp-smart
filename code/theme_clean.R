@@ -2,9 +2,14 @@
 # ggplot2 theme for clean charts
 ###############################################################################
 
-library(showtext)
-font_add_google("Jost")
-showtext_auto()
+# library(showtext)
+# font_add_google("Jost")
+# showtext_auto()
+
+library(systemfonts)
+library(ragg)
+
+
 
 update_geom_defaults("label", list(family = "Jost"))
 update_geom_defaults("text", list(family = "Jost"))
