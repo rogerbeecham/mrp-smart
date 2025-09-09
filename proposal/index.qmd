@@ -30,11 +30,13 @@ include_graphics(here("figs", "workflow.png"), error = FALSE)
 
 *MRP-SMART* will:
 
- 1. Contribute a collection of data products estimating the financial well-being of populations living in GB neighbourhoods. The data will form a much-needed [@jrf_poverty_2024] profile of local financial vulnerability, addressing issues of misallocation and poor targeting of recent, high-profile interventions to alleviate financial hardship [@ray-chaudhuri_lumpsum_2023; @dwp_cost_2024].
+ 1. Contribute a collection of data products estimating the financial well-being of populations living in GB neighbourhoods. The data will form a much-needed [@jrf_poverty_2024] profile of local financial vulnerability, addressing issues of misallocation and poor targeting in recent, high-profile interventions to alleviate financial hardship [@ray-chaudhuri_lumpsum_2023; @dwp_cost_2024].
 
 
- 2. Pioneer the the application of MRP for smart data research.  A flagship methodological paper will establish a case and framework for implementing MRP on smart datasets; and separately, peer-reviewed open source code that lowers the barrier of entry to MRP modelling. Together, these products will provide researchers and statistical agencies with principled yet practical tools to generate de-biased population estimates and communicate them via modern uncertainty visualization [@beecham_visualization_2025] in a responsible, transparent and policy-relevant way. 
+ 2. Pioneer the the application of MRP for smart data research.  A flagship methodological paper will establish a case and framework for implementing MRP on smart datasets; and separately, peer-reviewed open source code that lowers the barrier of entry to MRP modelling. Together these products will provide researchers and statistical agencies with principled yet practical tools to generate de-biased population estimates and communicate them in a responsible, transparent and policy-relevant way. 
 
+
+<!-- via modern uncertainty visualization [@beecham_visualization_2025] -->
 
 <!--  *MRP-SMART* is a collaboration between Financial (FINDS) and the Healthy and Sustainable Places (HASP) Data Services. The project will demonstrate how estimates of population-level outcomes at cross-sectional and neighbourhood-level can be generated from non-representative 'smart data' -- passively-collected observations of individual-level behaviours and transactions. It will do so via Multilevel Regression and Poststratification (MRP) [@gelman_poststratification_1997], a technique for small area estimation (SAE) little-used outside of Political Polling, but with obvious potential for addressing issues of representativeness in smart data research.  
 
@@ -57,15 +59,19 @@ The project will incorporate empirically-backed uncertainty representation techn
 A secondary outcome is the  methodological framework: *MRP-SMART* will curate documented code repositories and open source packages that lower the barrier to entry to MRP. This will build capacity across the network by enabling smart data researchers to generate MRP-derived place-based estimates of other outcomes, such as mobility, health and wellbeing. -->
 
 
-#### Why MRP for simulating population outcomes and behaviours?
+#### Why MRP for smart data research?
 
-In social research, samples from surveys are routinely used to estimate the characteristics of a population -- levels of financial distress, dietary and physical activity, pro-environmental attitudes. With a sufficiently large sample, we can *directly estimate* the prevalence of target outcomes at subnational (regional) level. If we want to look at smaller-scale geographies -- in GB, the 40k LSOA / Data Zone neighbourhoods which tend to really discriminate social outcomes --  *direct estimation* soon fails and we must turn to model-based approaches, or *small area estimation* (SAE).
+In social research, samples from surveys are routinely used to estimate the characteristics of a population -- levels of financial distress, dietary and physical activity, pro-environmental attitudes. With a sufficiently large sample, we can *directly estimate* the prevalence of target outcomes at subnational (regional) level. If we want to look at smaller-scale geographies -- in GB, the 40k LSOA neighbourhoods which tend to really discriminate social outcomes --  *direct estimation* soon fails and we must turn to model-based approaches, or *small area estimation* (SAE).
 
-In MRP, the outcome of interest is first modelled (MR) from survey microdata using a range of individual (respondent) demographics and group (area-level) context variables. Next, a 'poststratification frame' is constructed, whereby for every small-area unit, joint counts are derived from mainly Census data for the different demographics and area-level variables used in the model. At poststratification (P), predicted probabilities of the outcome are extracted from the model for each row of the postsratification frame. Multiplying these probabilities by the joint counts, we can estimate the extent that the target outcome occurs in the small-area.
+In MRP, the outcome of interest is first modelled (MR) from survey microdata using a range of individual (respondent) demographics and group (area-level) context variables. Next, a 'poststratification frame' is constructed, whereby for every small-area unit, joint counts are derived from mainly Census data for the different demographics and area-level variables used in the model. At poststratification (P), predicted probabilities of the outcome are extracted for each row of the postsratification frame. Multiplying these probabilities by the joint counts, we can estimate the extent that the target outcome occurs in the small-area.
 
 The key advantage of MRP lies in its use of Bayesian hierarchical models. It is common in SAE that certain demographic combinations have little or no representation in sample data.
 <!-- , especially when some additional geographic constraint is added.  -->
-In these cases, the model uses information from related groups to make more accurate estimates, known as partial pooling. In a famous example, @gelman_forecasting_2016 used MRP on a succession of *highly* unrepresentative polls of *Xbox* customers, and documented how *Xbox*-derived forecasts of 2012 US presidential election were in-line with those of leading pollsters using traditionally sampled-surveys. Additionally, because of the fully-Bayesian approach, posterior distributions are generated for each prediction. This means that for *any* combination of spatial unit and demographic type interpretable indicators of the uncertainty around estimates can be reported. 
+In these cases, the model uses information from related groups to make more accurate estimates, known as partial pooling. In a famous example, @gelman_forecasting_2016 used MRP on a succession of *highly* unrepresentative polls of *Xbox* customers, and documented how *Xbox*-derived forecasts of 2012 US presidential election were superior to those of leading pollsters using traditionally sampled-surveys. 
+
+MRP and has revolutionised political polling. In showing that reliable estimates of population-level outcomes can be generated from messy and entirely non-representative samples [@gelman_forecasting_2016], it has potential to do the sanme for smart data research.
+
+<!-- Additionally, because of the fully-Bayesian approach, posterior distributions are generated for each prediction. This means that for *any* combination of spatial unit and demographic type interpretable indicators of the uncertainty around estimates can be reported.  -->
 
 
 <!-- , even those that are not well-represented in the data.
@@ -74,12 +80,12 @@ and predictions can be made for any combination of demographics and area-level v
 
 #### Why MRP for FINDS?
 
-FINDS works with bank transaction records of over 5 million GB-based customers, and from here derives a set of 'financial health'  indicators of those customers: people with persistently *overdrawn accounts*, *living beyond their means*, with *low emergency resilience*.
+FINDS works with bank transaction records of over 5 million GB-based customers, and from here derives important 'financial health'  indicators of those customers: people with persistently *overdrawn accounts*, *living beyond their means*, with *low emergency resilience*.
 <!-- , as well as *median weekly income*.  -->
-These indicators are presented to policy-makers and service providers via an interactive web-based dashboard, the [*Economic Wellbeing Explorer*](https://smartdatafoundry.com/solutions/insights/economic-wellbeing-explorer). This tool allows users to subset by geography, demographics and individual financial indicators. While 5 million customers is undoubtedly a large dataset, it is not a representative or probabilistic sample. There is no guarantee that the customers recorded in the dataset accurately reflect the financial health of those  sub-populations. Since direct estimation is used, the sample becomes surprisingly small, unreliable and potentially disclosive when subset by combinations of demographics and area-level variables. At present, data are therefore  available at reasonably aggregated geographic spatial units and age bands. 
+These indicators are presented to policy-makers and service providers via an interactive web-based dashboard, the [*Economic Wellbeing Explorer*](https://smartdatafoundry.com/solutions/insights/economic-wellbeing-explorer). This tool allows users to subset by geography, demographics and individual financial indicators. While 5 million customers is undoubtedly a large dataset, it is not a  probabilistic sample. There is no guarantee that the customers recorded accurately reflect the financial health of the target  sub-populations. Additionally, since direct estimation is used, the sample becomes surprisingly small, unreliable and potentially disclosive when subset by combinations of demographics and area-level variables. At present, data are therefore  available at reasonably aggregated geographic spatial units and age bands. 
 
 <!-- As a principled, and empirically validated  approach to correcting for bias in non-representative samples,  -->
-*MRP-SMART* is a significant addition to FINDS and the [*Economic Wellbeing Explorer*](https://smartdatafoundry.com/solutions/insights/economic-wellbeing-explorer) tool. Unique estimates of 'financial health' could be generated for *any* combination of spatial unit and demographic combination, without risking disclosure and with interpretable uncertainty information expressed in the natural units of each outcome. 
+*MRP-SMART* is a significant addition to FINDS and the [*Economic Wellbeing Explorer*](https://smartdatafoundry.com/solutions/insights/economic-wellbeing-explorer) tool. Unique estimates of 'financial health' could be generated for *any* combination of small-area spatial unit and demographic combination, without risking disclosure and with interpretable uncertainty information expressed in the natural units of each outcome. 
 
 
 <!-- For each point estimate, uncertainty ranges will be generated in the natural units of the outcome, and framed in a concrete, intuitive and policy-relevant way.  The modelled data will be encoded in the *Economic Wellbeing Explorer* dashboard via empirically-backed uncertainty representation techniques [e.g. @franconeri_psychological_2022], and accompanied by data stories that explain how the MRP-based estimates can be used to assist decision-making.  -->
@@ -90,8 +96,8 @@ These indicators are presented to policy-makers and service providers via an int
 <!-- *MRP-SMART* offers substantial methodological opportunities for smart data research. The current standard for SAE, *spatial microsimulation* (SPM). HASP's [SIPHER](https://data.hasp.ac.uk/browser/dataset/6103/0)-based estimates on the *inclusive economy* and [Consumer Vulnerability](https://data.hasp.ac.uk/browser/dataset/5376/0) index [@adcock_consumer_2020], for example, are generated using that method. A theoretical case for using MRP in place of SPM can be made in that it addresses some key assumptions around individual sample data and their ability to discriminate target outcomes. In fact, MRP has been shown to produce more correct outcome estimates of a 'groundtruthed' outcome than equivalent models generated via SPM [see @beecham_should_2025].  But MRP may be especially well-suited to the more prosaic characteristics of smart datasets. A difficulty in producing small-area estimates with transactional and behavioural data is that they contain limited demographic information. They do often ship with geographic context, however -- the small-area neighbourhood in which individuals live, a situation that is not always true of conventional survey datasets.  MRP is ideally practiced in situations where that context is known and can be incorporated directly as a term into modelled estimates via partial pooling [@hanretty_introduction_2019].  -->
 
 
-*MRP-SMART* presents a real methodological opportunity for smart data research. The current standard for SAE, *spatial microsimulation* (SPM), relies on strong assumptions around individual sample data and their ability to discriminate target outcomes. MRP not only addresses these assumptions directly [@beecham_should_2025], but is well-suited to the general characteristics of smart datasets. The project  will contribute code products that enable other smart data researchers to generate MRP-derived estimates on their own behavioural datasets. Built into the project is an exchange of learning between data scientists at FINDS and those at HASP, who will implement MRP on HASP's SPM-derived place-based estimates on the [*Inclusive Economy*](https://data.hasp.ac.uk/browser/dataset/6103/0) and [Consumer Vulnerability](https://data.hasp.ac.uk/browser/dataset/5376/0) index [@adcock_consumer_2020], as well as
- behavioural datasets describing mobility and physical activity behaviours that are currently being acquired by that data service.
+*MRP-SMART* presents a real methodological opportunity for SDRUK. The current standard for SAE, *spatial microsimulation* (SPM), relies on strong assumptions around individual sample data and their ability to discriminate target outcomes. MRP not only addresses these assumptions directly [@beecham_should_2025], but is well-suited to the general characteristics of smart datasets. The project  will contribute code products that enable other smart data researchers to generate MRP-derived estimates on their own behavioural datasets. Built into the project is an exchange of learning between data scientists at FINDS and those at HASP, who will implement MRP on HASP's SPM-derived place-based estimates on the [*Inclusive Economy*](https://data.hasp.ac.uk/browser/dataset/6103/0) and [Consumer Vulnerability](https://data.hasp.ac.uk/browser/dataset/5376/0) index [@adcock_consumer_2020], as well as
+ datasets describing mobility and physical activity behaviours that are currently being acquired by that data service.
 
 <!-- on the representativeness of individual-level data, around the extent and reliability with which the underlying data can discriminate target outcomes, -->
 
@@ -136,15 +142,16 @@ RB is experienced in MRP and Bayesian modelling, and is an international expert 
 <!-- , a practice for which he has sustained track-record [e.g. @beecham_gridmappr_2025]. -->
 
 ##### Data Scientists, University of Leeds (*HASP*)
-HASP data scientists will be involved in the exchange of learning with RB and SDF data scientists. Included in our costing is travel budget for 2x HASP data scientists to visit SDF in Edinburgh.
+HASP data scientists will be involved in the exchange of learning with RB and SDF data scientists. Included in our costing is travel budget for 3x HASP data scientists to visit SDF in Edinburgh.
 
 
-##### Data Scientists (DS, SDS, HDS), Smart Data Foundry (*FINDS*)
-From SDF is a Data Scientist (40% over 9 months), Senior Data Scientist (40% over 9 months) and Head of Data Science (5% over 9 months).  The DS and SDS separately specialise in data pipelines and front-end tool development. Both will work under RB's guidance to implement the MRP models and generate predictions for different demographic and small area combinations. They will also develop the *Economic Wellbeing Explorer* tool. The HDS will work in an advisory capacity.
+##### Data Scientists (DS, SDS, CDS) and Engineer (SWE), Smart Data Foundry (*FINDS*)
+From SDF is a Data Scientist (40% over 9 months), Senior Data Scientist (40% over 9 months) and Chief Data Science (5% over 9 months).  The DS and SDS will work on data pipelines, implement the MRP models and develop front-end tools (i.e. via the Economic Wellbeing Dashboard). The SWE will perform testing and performance monitoring. Data Scientists will work under RB's and CDS's guidance to implement the MRP models and generate predictions for different demographic and small area combinations. They will also develop the *Economic Wellbeing Explorer* tool. 
+
 
 
 ##### Product Manager (PM) and Digital Content and Storytelling Specialist (DC&S), Smart Data Foundry (*FINDS*)
-SDF's PM (10% over 4 months) will support the delivery and curation of data products on the FINDS data catalogue, and the DC&S (20% over 2 months) will produce blog posts, data stories and engagement workshops aimed at explaining *MRP-SMART* data products to target end-users.
+SDF's PM (10% over 4 months) will support the delivery and curation of data products on the FINDS data catalogue, including engaging with end-users to understand how best to explain MRP-SMART data products,  and the DC&S (20% over 2 months) will produce blog posts and data stories.
 
 ### Aims and objectives 
 
@@ -181,7 +188,7 @@ Each data point generated through the project will be a *modelled* value, with *
 
 
 #### 3.   *Generate high-impact data products that enhance existing data assets* 
-The enhanced FINDS datasets -- de-biased and non-disclosive estimates describing the financial realities of populations at neighbourhood and cross-sectional level -- will be a unique resource for policymakers and service providers.
+The enhanced FINDS datasets -- de-biased and non-disclosive estimates describing the financial realities of populations at neighbourhood and cross-sectional level -- will be a unique resource for analysts, policymakers and service providers.
 
 
 <!-- The project will champion public policy engagement in these data products via data stories and visualization tools. -->
@@ -194,7 +201,7 @@ The enhanced FINDS datasets -- de-biased and non-disclosive estimates describing
 
 
 ####  1. Data products and tool
-*Estimates of population-level financial outcomes, published across area-level and demographic  dimensions, administered on the FINDS data catalogue and implemented in the Economic Wellbeing Explorer dashboard.* <br>  Alongside the data products will be data stories that explain how MRP-based estimates are generated. These efforts will assist reliable interpretation of model outputs.
+*Estimates of population-level financial outcomes, administered on the FINDS data catalogue and implemented in the Economic Wellbeing Explorer dashboard (e.g. @fig-comparison).* <br>  Alongside the data products will be data stories that explain how MRP-based estimates are generated. These efforts will assist reliable interpretation of model outputs.
 
 
 <!-- *Estimates of population-level financial outcomes, published across area-level and demographic  dimensions and with interpretable uncertainty ranges for each point estimate.* <br> These data products will be administered on the FINDS data catalogue and implemented in the *Economic Wellbeing Explorer* dashboard. Alongside the data products will be data stories that explain how MRP-based estimates are generated. These efforts will assist reliable interpretation of model outputs. -->
@@ -209,7 +216,7 @@ The enhanced FINDS datasets -- de-biased and non-disclosive estimates describing
 ```{r}
 #| label: fig-comparison
 #| out.width: 100%
-#| fig-cap: "*Economic Wellbeing Explorer* dashboard and candidate visual variables for uncertainty encoding [@beecham_visualization_2025] that will be used to communicate modelled estimates."
+#| fig-cap: "*Economic Wellbeing Explorer* dashboard and uncertainty encodings [@beecham_visualization_2025] that will be explored for communicating modelled estimates."
 #| echo: false
 #| eval: true
 include_graphics(here("figs", "uncertainty_vis.png"), error = FALSE)
@@ -226,7 +233,7 @@ include_graphics(here("figs", "uncertainty_vis.png"), error = FALSE)
 <!-- revisiting SAE in Geography and applied social science -->
 
 #### 3. Peer-reviewed code products 
-*Transferable code products, with tailored guidance on constructing postratification frames.* <br>  A [demo](https://www.roger-beecham.com/mrp-smart/demo/) for end-to-end MRP modelling has already been initiated as part of this proposal.  The code 'primer' for *MRP-SMART*, developed collaboratively by RB and HASP data scientists, will be published via the *Data:Code* section of *Environment & Planning B* [@bell_urban_2021] (*EPB*),  a practice for which RB has recent track-record [@beecham_gridmappr_2025]. 
+*Transferable code products, with tailored guidance on constructing postratification frames.* <br>  A [demo](https://www.roger-beecham.com/mrp-smart/demo/) for end-to-end MRP modelling has been initiated as part of this proposal.  The code 'primer' for *MRP-SMART*, developed collaboratively by RB and HASP data scientists, will be published via the *Data:Code* section of *Environment & Planning B* [@bell_urban_2021] (*EPB*),  a practice for which RB has recent track-record [@beecham_gridmappr_2025]. 
 
 <!-- 
 For each published data product, we will document the model-building process in full, including decisions on variable selection and model parameterisation. An in preparation [demo](https://www.roger-beecham.com/mrp-smart/demo/) for end-to-end MRP modelling has already been initiated as part of this proposal.  -->
@@ -305,6 +312,10 @@ MRP provides a methodological framework for addressing issues of bias and repres
 
 <!-- While funds will be delivered within the 2025/6 financial year, substantive work on the project will run over 12 months, starting October 2025 and ending September 2026.  -->
 
+
+
+The planned activity is organised into four phases (@fig-workplan). While funds will be delivered within the 2025/6 financial year, substantive work on the project will run over 12 months, starting October 2025 and ending September 2026. 
+
 ```{r}
 #| label: fig-workplan
 #| out.width: 100%
@@ -314,10 +325,7 @@ MRP provides a methodological framework for addressing issues of bias and repres
 include_graphics(here("figs", "workplan.png"), error = FALSE)
 ```
 
-
-The planned activity is organised into four phases (@fig-workplan). While funds will be delivered within the 2025/6 financial year, substantive work on the project will run over 12 months, starting October 2025 and ending September 2026. 
-
-Costs are detailed in the attached spreadsheets, completed separately by HASP (University of Leeds) and FINDS (SDF). The total full economic cost of the project is *£114,051*: *£50,600* claimed from University of Leeds; *£63,451* from SDF. In addition to staff time are *travel costs*: for RB to make three visits to SDF in Edinburgh; the two HASP data scientists to make two visits each; and RB to attend [AAG 2026](https://www.aag.org/events/aag2026/).
+Costs are detailed in the attached spreadsheets, completed separately by HASP (University of Leeds) and FINDS (SDF). The total full economic cost of the project is *£114,051*: *£50,600* claimed from University of Leeds; *£63,451* from SDF. In addition to staff time are *travel costs*: for RB to make three visits to SDF in Edinburgh; the HASP data scientists to make two visits each; and RB to attend [AAG 2026](https://www.aag.org/events/aag2026/).
 
 
 
@@ -352,9 +360,9 @@ RB and SDR data scientists will collaborate on building uncertainty visualizatio
 
 ##### FINDS microdata
 
-Work on FINDS individual-level data will be performed within the SDF TRE. All SDF data scientists have approval to work in this environment. RB and HASP data scientists will also require access to the SDF TRE. 
+Work on FINDS individual-level data will be performed within the SDF TRE. All SDF data scientists have approval to work in this environment. RB and HASP data scientists will also require TRE access. 
 
-SDF are responsible for this dependency and have a clear process in place. Each applicant needs to pass a “Standard Disclosure” or “DBS Check”, attend an online training session covering safe use of the TRE and sign a TRE user agreement.
+SDF are responsible for this dependency and have a clear process in place. Each applicant needs to pass a “Standard Disclosure” or “DBS Check”, attend an online training session and sign a TRE user agreement.
  
 
 ##### Census and area-level context data
@@ -366,13 +374,16 @@ These data are used for the poststratification frames, and at the maximum level 
 ###	Risks 
 
 ##### *That code libraries for MRP modelling cannot be used within SDF's TRE* 
-***Mitigation***: SDF data scientists have consulted our [demo](https://www.roger-beecham.com/mrp-smart/demo/) for end-to-end MRP modelling. We can confirm that the libraries explained in the demo are compatible with that TRE.
+***Mitigation***: SDF data scientists have consulted our [demo](https://www.roger-beecham.com/mrp-smart/demo/) for end-to-end MRP modelling. We can confirm the libraries explained in that demo are compatible with SDF's TRE, but we will further mitigate this risk in phase 2 through code translation and validation.
+
 
 ##### *FINDS microdata is not suitable for MRP modelling* 
 ***Mitigation***: 
 <!-- A key element of MRP is the re-weighting of modelled estimates using a poststratification frame. This typically is defined by cross-sectional demographic characteristics -- age, ethnicity, level of education. -->
-Although information on  FINDS microdata is not attribute-rich in its demographics, containing only age and sex, the fine-grained neighbourhood (LSOA) in which customers live *is* consistently recorded, as with many smart datasets. This means that area-level context variables, which in MRP have been demonstrated to be highly descriminating [@gelman_forecasting_2016], can be incorporated into the modelling process. We are therefore confident that MRP *can* be successfully applied to FINDS microdata. That MRP is ideally practiced in situations where this individual geographic context is known [@hanretty_introduction_2019], further reinforces the opportunity in bringing MRP to smart data research.
+Although FINDS microdata is not attribute-rich in its demographics, containing only age and sex, the fine-grained neighbourhood (LSOA) in which customers live *is* consistently recorded, as with many smart datasets. This means that area-level context variables can be incorporated into the modelling process. We are therefore confident that MRP *can* be successfully applied to FINDS microdata. That MRP is ideally practiced in situations where this individual geographic context is known [@hanretty_introduction_2019], further reinforces the opportunity in bringing MRP to smart data research.
 
+
+<!-- , which in MRP have been demonstrated to be highly descriminating [@gelman_forecasting_2016], -->
 <!-- That modelled estimates would be conditioned by individual LSOA further emphasises the appropriateness of the Bayesian modelling approach -- the pooled estimates -- outlined. -->
 
 <!-- While a key difficulty with behavioural data is that they are demographically sparse, they do usually record at a fine-grained neighbourhood level the context in which individuals live. MRP is ideally practiced in situations where this individual geographic context is known, as it can be incorporated into modelled estimates without losing information via partial pooling (Hanretty 2019). For the sorts of natioanlly representative survey datasets on which MRP is typically conducted, this is not always the case -->
@@ -381,20 +392,20 @@ Although information on  FINDS microdata is not attribute-rich in its demographi
 
 ###	Ethics 
 
-
-<!-- > How any potential ethical and legal issues have been considered and will be addressed. -->
-
-
 #### Ethical approval for use of data 
 
-SDF will complete a Data Protection Impact Assessment (DPIA) and seek ethical approval for the entire project through University of Edinburgh.
+All FINDS research leverages best practice frameworks for ethical use of financial data. SDF will complete a ‘Research in the Public Interest’ Data Protection Impact Assessment (DPIA) and seek ethical approval for the entire project through University of Edinburgh.
+
+<!-- University of Edinburgh ethics processes, ESRC guidelines, and the Concordat to Support Research Integrity. -->
 
 <!-- > a standard paragraph outlining SDFs ethical approach by Friday next week so will share then for inclusion. -->
  
 
 
 #### Data privacy and disclosure 
-Models using FINDS microdata will be built end-to-end by SDF data scientists within the SDF TRE, supported by RB. Data products -- modelled estimates and uncertainty bands -- will be published via SDF FINDS data catalogue, and by default have *Safeguarded* access. As the data products are derived from model probabilities, they are entirely synthetic and cannot be disclosive of individuals. 
+Models using FINDS microdata will be built end-to-end within the SDF TRE and the resulting data products published via SDF FINDS data catalogue, which by default has *Safeguarded* access. As the data products are derived from model probabilities, they are entirely synthetic and cannot be disclosive of individuals. 
+
+<!-- -- modelled estimates and uncertainty bands --  -->
 
 <!-- #### Responsible communication of uncertainty
 Our data stories and visualization tools that explain the modelling process are strategies to ensure responsible use of data. They help users to fully understand the estimates and their limitations, and in this respect support ethical use of smart data. -->
