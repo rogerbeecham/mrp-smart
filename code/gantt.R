@@ -19,16 +19,16 @@ project_data <- data.frame(
     "RB develops MRP code repositories",
     "RB constructs postratification frames +\t
     area-level context variables for FINDS model",
-    "RB works on the RSOS methods paper",
+    "RB works on RSOS methods paper",
     
     # Phase 2 tasks
-    "RB + SDF data scientists build FINDS MRP model",
+    "RB + SDF data scientists and engineers build FINDS MRP model",
     "HASP + SDF data scientist exchange meetings",
     "RB presents at AAG 2026",
     
     # Phase 3 tasks
-    "SDF data scientists + Project Manager on-board\t
-    data products to FINDS catalogue",
+    "SDF data scientists, software engineer\t
+     + Project Manager on-board data products to FINDS catalogue",
     "RB + HASP data scientists develop\t
     and submit EPB Data:Code paper",
     "RB submits methods paper to RSOS",
@@ -123,6 +123,63 @@ p <- ggplot(project_data, aes(x = as_date(start), xend = as_date(end),
   theme(
     axis.text.y=element_blank(), axis.line.y=element_blank())
 
+
+
+
+person_data <- data.frame(
+  phase = rep(c("P1","P2", "P3", "P4"), times=8, each=1),
+  person = rep(c("RB", 
+                   "3xDS", 
+                   "DS", 
+                   "SDS", 
+                   "CDS",
+                   "SWE",
+                   "PM", 
+                   "DC&S"),
+                   times=1, each=4),
+  time=c(
+    22.5,22.5,22.5,22.5,
+    0, 10, 10, 10,
+    0, 40, 40, 20,
+    0, 40, 40, 20,
+    0, 5, 5, 5,
+    0, 10, 10, 0,
+    0, 0, 3, 10,
+    0, 0, 0, 13
+    )
+  ) |> 
+  mutate(person=factor(person, levels=c("RB", 
+                       "3xDS", 
+                       "DS", 
+                       "SDS", 
+                       "CDS", 
+                       "SWE",
+                       "PM", 
+                       "DC&S")),
+         phase=factor(phase, levels=c("P1","P2", "P3", "P4")))
+
+p_person <- person_data |> 
+  mutate(phase=fct_rev(phase)) |> 
+  ggplot(aes(y=phase,x=person)) +
+  geom_tile(colour="#969696", fill="transparent", linewidth=.1) +
+  #geom_tile(data = . %>% filter(person!="3xDS"), colour="#f0f0f0", fill="transparent", linewidth=.5) +
+  #geom_tile(data = . %>% filter(person=="3xDS"), colour="#f0f0f0", fill="#f0f0f0", linewidth=.5) +
+  geom_point(data = . %>% filter(time>0, person!="3xDS"), aes(size=time, fill=phase, colour=phase), alpha=1, pch=21) +
+  geom_point(data = . %>% filter(time>0, person=="3xDS"), 
+             aes(size=time, colour=phase, fill=phase), alpha=.5, pch=21) +
+  scale_colour_manual(values=c("#fb9a99", "#b2df8a", "#fdbf6f", "#a6cee3")) +
+  scale_fill_manual(values=c("#fb9a99", "#b2df8a", "#fdbf6f", "#a6cee3")) +
+  scale_x_discrete(position = "top") +
+  scale_size(range=c(1,8)) +
+  guides(fill="none", colour="none", size="none") +
+  theme(
+    axis.title.x = element_blank(), axis.title.y = element_blank(),
+    axis.line = element_blank(),
+    axis.text.y = element_text(face="bold")
+  )
+
+
+
 p_combined <- ggplot() +
   annotation_custom(as_grob(p), xmin = 0, ymin = 0, xmax = 1, ymax = 1) +
   
@@ -146,7 +203,7 @@ p_combined <- ggplot() +
   annotate("richtext", x=.6,y=0.05, hjust="middle",vjust="top", label.colour = NA, size=4, colour="#525252", fill="transparent",
            label="2026" ) +
   
-  annotation_custom(as_grob(p_person), xmin = -.05, ymin = -.15, xmax = .35, ymax = -.5) +
+  annotation_custom(as_grob(p_person), xmin = -.05, ymin = -.15, xmax = .4, ymax = -.5) +
   
   annotate("richtext", x=-.065,y=-.04, hjust="left",vjust="top", label.colour = NA, size=6.5, colour="#525252", fill="transparent",
            label="**Personnel allocation**" ) +
@@ -157,16 +214,16 @@ p_combined <- ggplot() +
   annotate("richtext", x=.2,y=-.12, hjust="middle",vjust="top", label.colour = NA, size=4, colour="#525252", fill="transparent",
            label="SDF" ) +
   
-  annotate("richtext", x=.37,y=-.38, hjust="left",vjust="top", label.colour = NA, size=3.3, colour="#525252", fill="transparent",
+  annotate("richtext", x=.41,y=-.38, hjust="left",vjust="top", label.colour = NA, size=3.3, colour="#525252", fill="transparent",
            label="*3xDS column*<br>HASP Data Scientists are<br>not directly costed." ) +
   
-  annotate("richtext", x=.37,y=-.18, hjust="left",vjust="top", label.colour = NA, size=3.3, colour="#525252", fill="transparent",
-           label="Circles are sized proportionally<br>to time-adjusted workload. <br> So RB is working 22% over<br>12 months, SDF data scientists<br> 40% in 9 months." ) +
+  annotate("richtext", x=.41,y=-.16, hjust="left",vjust="top", label.colour = NA, size=3.3, colour="#525252", fill="transparent",
+           label="Circles are sized proportionally<br>to time-adjusted workload. So<br>RB is working 22% over 12<br>months (P1-P4); SDF Data Scientists<br>40% in 6 months (P2-P3), then<br>20% in 3 months (P4)." ) +
   
   
- # annotate("curve", x=.34, xend=.09, y=-.43, yend=-.43, linewidth=.2, colour="#969696", arrow = arrow(length = unit(0.006, "npc")), curvature = -0.3) + 
+  # annotate("curve", x=.34, xend=.09, y=-.43, yend=-.43, linewidth=.2, colour="#969696", arrow = arrow(length = unit(0.006, "npc")), curvature = -0.3) + 
   
-  annotate("segment",  x=0.0895,y=-0.14, xend=0.0895, yend=-0.22, colour="#969696", linewidth=.15) +
+  annotate("segment",  x=0.0895,y=-0.14, xend=0.0895, yend=-0.22, colour="#525252", linewidth=.15) +
   
   scale_y_continuous(limits=c(-0.5,1.11), expand=c(0, 0)) +
   scale_x_continuous(limits=c(-.1,1.05), expand=c(0, 0)) +
@@ -175,71 +232,7 @@ p_combined <- ggplot() +
     axis.line = element_blank(), 
     axis.title.x = element_blank(), axis.title.y = element_blank())
 
-quartz(file = here("figs", "workplan.png"), type = "png", dpi = 300, width = 11, height = 8.5)
+quartz(file = here("figs", "workplan2.png"), type = "png", dpi = 300, width = 11, height = 8.5)
 print(p_combined)
 dev.off()
-
-
-person_data <- data.frame(
-  phase = rep(c("P1","P2", "P3", "P4"), times=7, each=1),
-  person = rep(c("RB", 
-                   "3xDS", 
-                   "DS", 
-                   "SDS", 
-                   "CDS", 
-                   "PM", 
-                   "DC&S"),
-                   times=1, each=4),
-  time=c(
-    22,22,22,22,
-    0, 10, 10, 10,
-    0, 40, 40, 40,
-    0, 40, 40, 40,
-    0, 5, 5, 5,
-    0, 0, 3, 10,
-    0, 0, 0, 13
-    )
-  ) |> 
-  mutate(person=factor(person, levels=c("RB", 
-                       "3xDS", 
-                       "DS", 
-                       "SDS", 
-                       "CDS", 
-                       "PM", 
-                       "DC&S")),
-         phase=factor(phase, levels=c("P1","P2", "P3", "P4")))
-
-p_person <- person_data |> 
-  mutate(phase=fct_rev(phase)) |> 
-  ggplot(aes(y=phase,x=person)) +
-  geom_tile(colour="#969696", fill="transparent", linewidth=.1) +
-  #geom_tile(data = . %>% filter(person!="3xDS"), colour="#f0f0f0", fill="transparent", linewidth=.5) +
-  #geom_tile(data = . %>% filter(person=="3xDS"), colour="#f0f0f0", fill="#f0f0f0", linewidth=.5) +
-  geom_point(data = . %>% filter(time>0, person!="3xDS"), aes(size=time, fill=phase, colour=phase), alpha=1, pch=21) +
-  geom_point(data = . %>% filter(time>0, person=="3xDS"), 
-             aes(size=time, colour=phase, fill=phase), alpha=.5, pch=21) +
-  scale_colour_manual(values=c("#fb9a99", "#b2df8a", "#fdbf6f", "#a6cee3")) +
-  scale_fill_manual(values=c("#fb9a99", "#b2df8a", "#fdbf6f", "#a6cee3")) +
-  scale_x_discrete(position = "top") +
-  guides(fill="none", colour="none", size="none") +
-  theme(
-    axis.title.x = element_blank(), axis.title.y = element_blank(),
-    axis.line = element_blank(),
-    axis.text.y = element_text(face="bold")
-  )
-  
-  
-  time = c()
-  )
-                 
-                 
-                 
-             rep("3xDS\nHASP", times=4, each=1), 
-             rep("DS\nSDF", times=4, each=1), 
-             rep("SDS\nSDF", times=4, each=1),
-             rep("CDS\nSDF",times=4, each=1), 
-             rep("PM\nSDF",times=4, each=1), 
-             rep("DC&S\nSDF",times=4, each=1))
-  ) 
-
 
